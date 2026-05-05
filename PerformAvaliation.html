@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Perform Avaliation</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#1D9E75;--dark:#0F6E56;--lgreen:#E1F5EE;--bdgreen:#5DCAA5;
+  --amber:#EF9F27;--damber:#854F0B;--lamber:#FAEEDA;--bdamber:#EF9F27;
+  --red:#E24B4A;--dred:#A32D2D;--lred:#FCEBEB;--bdred:#F09595;
+  --blue:#185FA5;--lblue:#E6F1FB;
+  --purple:#533AB7;--lpurple:#EEEDFE;
+  --olive:#3B6D11;--lolive:#EAF3DE;
+  --bg:#F6F5F1;--card:#fff;--border:#E2E0DA;--border2:#CCCAC3;
+  --text:#1A1A18;--text2:#6B6963;--text3:#A09D97;
+  --sidebar:210px;--header:52px;
+  font-family:'Segoe UI',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+table{border-collapse:collapse;width:100%}
+
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;min-height:100vh}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+#main-layout{display:none;flex-direction:column;min-height:100vh}
+#main-layout.visible{display:flex}
+header{height:var(--header);background:var(--card);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;padding:0 1.25rem;position:sticky;top:0;z-index:100}
+.body-wrap{display:flex;flex:1;overflow:hidden}
+#sidebar{width:var(--sidebar);min-width:var(--sidebar);background:var(--card);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow-y:auto}
+#content{flex:1;overflow-y:auto;padding:1.5rem}
+
+/* ── Sidebar nav ──────────────────────────────────────────────────────────── */
+.nav-section{padding:.75rem .75rem .25rem;font-size:10px;font-weight:600;
+  color:var(--text3);text-transform:uppercase;letter-spacing:.6px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 1.25rem;cursor:pointer;
+  font-size:13px;color:var(--text2);border-right:2px solid transparent;transition:all .12s}
+.nav-item:hover{background:#F6F5F1;color:var(--text)}
+.nav-item.active{background:#F0EFEA;color:var(--text);font-weight:500;border-right-color:var(--active-color,var(--green))}
+.nav-item .icon{font-size:14px;opacity:.5}
+.nav-item.active .icon{opacity:1}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;
+  padding:1px 6px;font-size:10px;font-weight:600}
+.sidebar-foot{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid var(--border)}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;margin-bottom:1rem}
+.card-title{font-weight:600;font-size:14px;margin-bottom:.5rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem}
+
+/* ── Metrics ──────────────────────────────────────────────────────────────── */
+.met{background:#F6F5F1;border-radius:8px;padding:1rem}
+.met-label{font-size:11px;color:var(--text2);margin-bottom:4px}
+.met-val{font-size:22px;font-weight:500}
+.met-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* ── Chips ────────────────────────────────────────────────────────────────── */
+.chip{display:inline-flex;align-items:center;padding:2px 9px;border-radius:10px;
+  font-size:11px;font-weight:500;border:.5px solid;white-space:nowrap}
+.chip-bom  {color:var(--dark);background:var(--lgreen);border-color:var(--bdgreen)}
+.chip-medio{color:var(--damber);background:var(--lamber);border-color:var(--bdamber)}
+.chip-ruim {color:var(--dred);background:var(--lred);border-color:var(--bdred)}
+.chip-gray {color:var(--text2);background:#F0EFEA;border-color:var(--border2)}
+.chip-crit {color:var(--dred);background:var(--lred);border-color:var(--bdred)}
+.chip-grav {color:var(--damber);background:var(--lamber);border-color:var(--bdamber)}
+.chip-medi {color:var(--blue);background:var(--lblue);border-color:#85B7EB}
+.chip-leve {color:var(--olive);background:var(--lolive);border-color:#A3C97A}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;font-size:13px;
+  border-radius:8px;border:.5px solid var(--border2);background:transparent;
+  color:var(--text);transition:all .12s}
+.btn:hover{background:#F0EFEA}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-lg{padding:10px 20px;font-size:14px}
+.btn-full{width:100%;justify-content:center}
+.btn-pr{background:var(--green);color:#fff;border-color:transparent}
+.btn-pr:hover{background:var(--dark)}
+.btn-dn{color:var(--dred);border-color:var(--bdred)}
+.btn-am{background:var(--lamber);color:var(--damber);border-color:var(--bdamber)}
+.btn-gh{border-color:transparent;color:var(--text2)}
+
+/* ── Forms ────────────────────────────────────────────────────────────────── */
+.fg{margin-bottom:1rem}
+.fg label{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:4px}
+.fg input,.fg select,.fg textarea{
+  width:100%;border:.5px solid var(--border2);border-radius:8px;padding:8px 10px;
+  font-size:13px;background:var(--card);color:var(--text);outline:none;
+  font-family:inherit;transition:border-color .12s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--green)}
+.fg textarea{min-height:72px;resize:vertical}
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto}
+.tbl th{font-size:11px;font-weight:500;color:var(--text2);text-align:left;
+  padding:8px 12px;border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:9px 12px;font-size:13px;border-bottom:.5px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#FAFAF8}
+
+/* ── Score bar ────────────────────────────────────────────────────────────── */
+.sbar{height:6px;border-radius:3px;background:#EEECEA;overflow:hidden;margin-top:4px}
+.sbar-fill{height:100%;border-radius:3px;transition:width .5s}
+
+/* ── Alerts ───────────────────────────────────────────────────────────────── */
+.alrt{padding:10px 14px;border-radius:8px;margin-bottom:1rem;font-size:13px;border:.5px solid}
+.alrt-wn{background:var(--lamber);color:var(--damber);border-color:var(--bdamber)}
+.alrt-dn{background:var(--lred);color:var(--dred);border-color:var(--bdred)}
+.alrt-ok{background:var(--lgreen);color:var(--dark);border-color:var(--bdgreen)}
+.alrt-if{background:var(--lblue);color:var(--blue);border-color:#85B7EB}
+
+/* ── Modals ───────────────────────────────────────────────────────────────── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:200;align-items:center;justify-content:center;padding:1rem}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border-radius:12px;border:1px solid var(--border);
+  padding:1.5rem;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+.modal-title{font-size:15px;font-weight:500}
+.modal-close{background:none;border:none;font-size:22px;color:var(--text2);line-height:1;padding:0 4px}
+
+/* ── Page header ──────────────────────────────────────────────────────────── */
+.ph{margin-bottom:1.25rem}
+.ph-title{font-size:16px;font-weight:500;margin-bottom:2px}
+.ph-sub{font-size:13px;color:var(--text2)}
+
+/* ── Divider ──────────────────────────────────────────────────────────────── */
+.div{height:.5px;background:var(--border);margin:1rem 0}
+
+/* ── Logo ─────────────────────────────────────────────────────────────────── */
+.logo{width:28px;height:28px;background:var(--green);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.logo svg{display:block}
+
+/* ── Score composition box ────────────────────────────────────────────────── */
+.scorecomp{background:#F6F5F1;border-radius:8px;padding:10px 14px}
+.scorecomp-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+
+/* ── Confrat banner ───────────────────────────────────────────────────────── */
+.confrat{background:var(--lgreen);border:.5px solid var(--bdgreen);border-radius:12px;
+  padding:1rem 1.25rem;display:flex;gap:1rem;align-items:center;margin-bottom:.75rem}
+
+/* ── Tab buttons ──────────────────────────────────────────────────────────── */
+.tabs{display:flex;gap:4px;margin-bottom:1rem}
+.tab{padding:5px 14px;border-radius:8px;border:.5px solid var(--border);background:transparent;
+  color:var(--text2);font-size:13px;cursor:pointer;transition:all .12s}
+.tab.active{background:var(--green);color:#fff;border-color:transparent}
+
+/* ── Print styles ─────────────────────────────────────────────────────────── */
+@media print{
+  #main-layout,header,#sidebar,.no-print{display:none!important}
+  #print-area{display:block!important}
+  body{background:#fff}
+  @page{margin:1.5cm;size:A4}
+}
+#print-area{display:none}
+.print-doc{font-family:'Segoe UI',sans-serif;font-size:12px;color:#1A1A18;line-height:1.5}
+.print-header{background:#1D9E75;color:#fff;padding:16px 20px;border-radius:8px;
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.print-header h1{font-size:16px;font-weight:600;margin:0}
+.print-header .meta{font-size:10px;text-align:right;line-height:1.8;opacity:.9}
+.print-score-box{display:flex;gap:16px;margin-bottom:16px}
+.print-score-big{flex:0 0 120px;background:#E1F5EE;border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px}
+.print-score-num{font-size:40px;font-weight:700;color:#1D9E75;line-height:1}
+.print-score-label{font-size:11px;color:#0F6E56;font-weight:600;margin-top:4px}
+.print-info{flex:1;background:#F6F5F1;border-radius:8px;padding:12px 16px;font-size:11px;line-height:2}
+.print-info b{color:#1A1A18}
+.print-section-title{font-size:12px;font-weight:700;color:#0F6E56;margin:14px 0 6px;
+  border-bottom:1.5px solid #1D9E75;padding-bottom:3px}
+.print-table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:11px}
+.print-table th{background:#0F6E56;color:#fff;padding:6px 10px;text-align:left;font-weight:600}
+.print-table td{padding:6px 10px;border-bottom:.5px solid #E2E0DA}
+.print-table tr:nth-child(even) td{background:#F6F5F1}
+.print-bar-wrap{height:8px;background:#E2E0DA;border-radius:4px;margin:4px 0;overflow:hidden}
+.print-bar-fill{height:100%;border-radius:4px}
+.print-sigs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:24px;padding-top:16px;border-top:.5px solid #ccc}
+.print-sig{text-align:center;font-size:10px}
+.print-sig-line{border-bottom:.5px solid #555;margin-bottom:6px;height:28px}
+.print-sig b{display:block;font-size:11px;margin-bottom:2px}
+.print-footer{margin-top:20px;text-align:center;font-size:9px;color:#A09D97;border-top:.5px solid #E2E0DA;padding-top:8px}
+.print-alrt{background:#FCEBEB;border:.5px solid #F09595;border-radius:6px;
+  padding:8px 12px;color:#A32D2D;font-size:11px;font-weight:600;margin-bottom:12px;text-align:center}
+.print-plan{width:100%;border-collapse:collapse;font-size:11px}
+.print-plan th{background:#EF9F27;color:#fff;padding:6px 10px;text-align:left;font-weight:600}
+.print-plan td{padding:8px 10px;border-bottom:.5px solid #E2E0DA;height:28px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══════════════════ LOGIN ══════════════════ -->
+<div id="login-screen">
+  <div style="width:380px;background:#fff;border:1px solid #E2E0DA;border-radius:16px;padding:2rem">
+    <div style="text-align:center;margin-bottom:1.75rem">
+      <div class="logo" style="width:52px;height:52px;border-radius:12px;margin:0 auto 1rem">
+        <svg width="28" height="28" viewBox="0 0 16 16" fill="white"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>
+      </div>
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.5px">Perform Avaliation</div>
+      <div style="font-size:13px;color:#6B6963;margin-top:4px">Sistema de Avaliação de Performance</div>
+    </div>
+    <div id="login-err" class="alrt alrt-dn" style="display:none"></div>
+    <div class="fg"><label>E-mail</label><input type="email" id="l-email" placeholder="seu@email.com"/></div>
+    <div class="fg"><label>Senha</label><input type="password" id="l-senha" placeholder="••••••••"/></div>
+    <button class="btn btn-pr btn-lg btn-full" onclick="doLogin()" style="margin-top:.5rem">Entrar</button>
+
+  </div>
+</div>
+
+<!-- ══════════════════ MAIN LAYOUT ══════════════════ -->
+<div id="main-layout">
+  <header>
+    <div class="logo"><svg width="16" height="16" viewBox="0 0 16 16" fill="white"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg></div>
+    <span style="font-weight:600;font-size:15px;letter-spacing:-.3px">Perform Avaliation</span>
+    <div id="hd-badge" style="display:flex;align-items:center;gap:6px;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:500"></div>
+    <div style="flex:1"></div>
+    <span id="hd-user" style="font-size:13px;color:#6B6963"></span>
+    <button class="btn btn-gh btn-sm" onclick="doLogout()">Sair</button>
+  </header>
+  <div class="body-wrap">
+    <div id="sidebar">
+      <div class="nav-section">Navegação</div>
+      <div id="nav-items"></div>
+      <div class="sidebar-foot">
+        <div style="font-size:11px;color:#A09D97">Período</div>
+        <div style="font-size:13px;font-weight:600;margin-top:2px" id="sb-mes"></div>
+        <div id="sb-pend" style="margin-top:6px;font-size:12px;color:#A32D2D;display:none"></div>
+      </div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ PRINT AREA ══════════════════ -->
+<div id="print-area"></div>
+
+<!-- ══════════════════ MODALS ══════════════════ -->
+<div id="modal-bg" class="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-hd">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DADOS & ESTADO
+// ═══════════════════════════════════════════════════════════════════════════
+const MES = "Maio 2025";
+const DESCONTO = {Crítica:3,Grave:2,Média:1,Leve:.5};
+const GC = {Crítica:"#A32D2D",Grave:"#854F0B",Média:"#185FA5",Leve:"#3B6D11"};
+const GB = {Crítica:"#FCEBEB",Grave:"#FAEEDA",Média:"#E6F1FB",Leve:"#EAF3DE"};
+
+let DB = {
+  colaboradores:[
+    {id:"001",nome:"Ana Paula Ferreira",nivel:"Assistente",turno:"Tarde",cargo:"Assistente Operacional",supId:"G001",lidId:"G003",status:"Ativo"},
+    {id:"002",nome:"Carlos Eduardo Lima",nivel:"Focal",turno:"Tarde",cargo:"Operador Focal",supId:"G001",lidId:"G003",status:"Ativo"},
+    {id:"003",nome:"João Mendes",nivel:"Auxiliar",turno:"Manhã",cargo:"Auxiliar Operacional",supId:"G002",lidId:"G004",status:"Ativo"},
+    {id:"004",nome:"Fernanda Rocha",nivel:"Focal",turno:"Manhã",cargo:"Operador Focal",supId:"G002",lidId:"G004",status:"Ativo"},
+    {id:"005",nome:"Marcos Silva",nivel:"Auxiliar",turno:"Manhã",cargo:"Auxiliar Operacional",supId:"G002",lidId:"G003",status:"Ativo"},
+    {id:"006",nome:"Juliana Costa",nivel:"Assistente",turno:"Tarde",cargo:"Assistente Operacional",supId:"G001",lidId:"G003",status:"Ativo"},
+    {id:"007",nome:"Tatiane Borges",nivel:"Assistente",turno:"Manhã",cargo:"Assistente Operacional",supId:"G002",lidId:"G004",status:"Ativo"},
+    {id:"008",nome:"Roberto Alves",nivel:"Focal",turno:"Noite",cargo:"Operador Focal",supId:"G002",lidId:"G005",status:"Ativo"},
+    {id:"009",nome:"Patricia Lima",nivel:"Auxiliar",turno:"Tarde",cargo:"Auxiliar Operacional",supId:"G001",lidId:"G003",status:"Ativo"},
+    {id:"010",nome:"Sandro Vieira",nivel:"Auxiliar",turno:"Tarde",cargo:"Auxiliar Operacional",supId:"G001",lidId:"G003",status:"Ativo"},
+    {id:"011",nome:"Bruna Carvalho",nivel:"Focal",turno:"Noite",cargo:"Operador Focal",supId:"G002",lidId:"G005",status:"Ativo"},
+    {id:"012",nome:"Diego Santana",nivel:"Auxiliar",turno:"Noite",cargo:"Auxiliar Operacional",supId:"G002",lidId:"G005",status:"Ativo"},
+  ],
+  gestao:[
+    {id:"G001",nome:"Ricardo Faria",cargo:"supervisor",turno:"Tarde",email:"ricardo@empresa.com",senha:"demo"},
+    {id:"G002",nome:"Daniela Cruz",cargo:"supervisor",turno:"Manhã",email:"daniela@empresa.com",senha:"demo"},
+    {id:"G003",nome:"Paulo Rodrigues",cargo:"lider",turno:"Tarde",email:"paulo@empresa.com",senha:"demo"},
+    {id:"G004",nome:"Paula Mendonça",cargo:"lider",turno:"Manhã",email:"paula@empresa.com",senha:"demo"},
+    {id:"G005",nome:"Líder Noturno",cargo:"lider",turno:"Noite",email:"noite@empresa.com",senha:"demo"},
+    {id:"G006",nome:"Coord. Geral",cargo:"coordenador",turno:"Todos",email:"coord@empresa.com",senha:"demo"},
+    {id:"G007",nome:"RGM Corporativo",cargo:"rgm",turno:"Todos",email:"rgm@empresa.com",senha:"demo"},
+    {id:"G008",nome:"Administrador",cargo:"adm",turno:"Todos",email:"processosrjes@gmail.com",senha:"admin@2025"},
+  ],
+  criterios:{
+    Auxiliar:["Assiduidade e Pontualidade","Qualidade na Execução","Relacionamento com Equipe","Cumprimento de Normas e EPIs"],
+    Focal:["Assiduidade e Pontualidade","Qualidade na Execução","Relacionamento com Equipe","Cumprimento de Normas e EPIs","Proatividade"],
+    Assistente:["Assiduidade e Pontualidade","Qualidade na Execução","Relacionamento com Equipe","Cumprimento de Normas e EPIs","Proatividade","Liderança de Processo"],
+  },
+  inconformidades:[
+    {id:"INC001",colaboradorId:"003",mes:MES,data:"05/05/2025",descricao:"EPI sem uso durante operação",gravidade:"Crítica",lidId:"G004",status:"Validada",supId:"G002",obsL:"Sem capacete na área de risco",obsS:"Confirmado"},
+    {id:"INC002",colaboradorId:"003",mes:MES,data:"08/05/2025",descricao:"Atraso de 45 min sem comunicação",gravidade:"Grave",lidId:"G004",status:"Validada",supId:"G002",obsL:"",obsS:""},
+    {id:"INC003",colaboradorId:"004",mes:MES,data:"10/05/2025",descricao:"Postura inadequada com cliente",gravidade:"Média",lidId:"G004",status:"Pendente",supId:"",obsL:"Reclamação registrada",obsS:""},
+    {id:"INC004",colaboradorId:"007",mes:MES,data:"12/05/2025",descricao:"Atraso de 20 min sem aviso",gravidade:"Leve",lidId:"G004",status:"Pendente",supId:"",obsL:"",obsS:""},
+    {id:"INC005",colaboradorId:"010",mes:MES,data:"14/05/2025",descricao:"Não cumprimento do proc. de higiene",gravidade:"Grave",lidId:"G003",status:"Validada",supId:"G001",obsL:"",obsS:""},
+    {id:"INC006",colaboradorId:"009",mes:MES,data:"16/05/2025",descricao:"Saída antecipada sem autorização",gravidade:"Média",lidId:"G003",status:"Pendente",supId:"",obsL:"",obsS:""},
+  ],
+  historico:{Manhã:[[2,8.2],[3,7.6],[4,8.0]],Tarde:[[2,9.0],[3,8.8],[4,9.2]],Noite:[[2,7.5],[3,8.0],[4,7.8]]},
+};
+
+// Login dinâmico — busca em DB.gestao por email e senha
+function findUser(email, senha) {
+  const g = DB.gestao.find(x => x.email.toLowerCase() === email && x.senha === senha);
+  if (!g) return null;
+  // cargo do gestao mapeia para perfil
+  const cargoPerfilMap = {adm:"adm", rgm:"rgm", coordenador:"coordenador", supervisor:"supervisor", lider:"lider"};
+  const perfil = cargoPerfilMap[g.cargo];
+  if (!perfil) return null;
+  return { perfil, gid: g.id };
+}
+
+const PERFIS={
+  adm:{label:"Administrador",cor:"#533AB7",bgCor:"#EEEDFE",
+    pages:["adm_painel","adm_colaboradores","adm_criterios","adm_gestao","adm_exportar"]},
+  rgm:{label:"RGM",cor:"#185FA5",bgCor:"#E6F1FB",
+    pages:["rgm_visao","rgm_perf","rgm_ranking"]},
+  coordenador:{label:"Coordenador",cor:"#854F0B",bgCor:"#FAEEDA",
+    pages:["coord_painel","coord_aval","coord_inc","coord_turnos","coord_prom"]},
+  supervisor:{label:"Supervisor",cor:"#0F6E56",bgCor:"#E1F5EE",
+    pages:["sup_painel","sup_validar","sup_fechar","sup_listas"]},
+  lider:{label:"Líder",cor:"#3B6D11",bgCor:"#EAF3DE",
+    pages:["lid_turno","lid_registrar"]},
+};
+
+const PAGE_META={
+  adm_painel:{label:"Painel ADM",icon:"⊞"},
+  adm_colaboradores:{label:"Colaboradores",icon:"👥"},
+  adm_criterios:{label:"Critérios",icon:"📋"},
+  adm_gestao:{label:"Equipe de Gestão",icon:"🏢"},
+  adm_exportar:{label:"Exportar / Imprimir",icon:"🖨"},
+  rgm_visao:{label:"Visão Geral",icon:"⊞"},
+  rgm_perf:{label:"Performance",icon:"📈"},
+  rgm_ranking:{label:"Ranking",icon:"🏆"},
+  coord_painel:{label:"Painel",icon:"⊞"},
+  coord_aval:{label:"Avaliações",icon:"📋"},
+  coord_inc:{label:"Inconformidades",icon:"⚠"},
+  coord_turnos:{label:"Gestão de Turnos",icon:"🔄"},
+  coord_prom:{label:"Promoções",icon:"⭐"},
+  sup_painel:{label:"Painel do Turno",icon:"⊞"},
+  sup_validar:{label:"Validar Inconform.",icon:"✓"},
+  sup_fechar:{label:"Fechar Mês",icon:"🔒"},
+  sup_listas:{label:"Listas e Impressão",icon:"🖨"},
+  lid_turno:{label:"Meu Turno",icon:"👥"},
+  lid_registrar:{label:"Registrar Inconform.",icon:"⚠"},
+};
+
+// Estado global
+let SESSION=null, PAGE=null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+const score=(cid,mes=MES)=>{
+  const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===mes&&i.status==="Validada");
+  return Math.max(0,10-v.reduce((a,i)=>a+(DESCONTO[i.gravidade]||0),0));
+};
+const faixa=s=>s>=8?{l:"Bom",c:"#1D9E75",bg:"#E1F5EE",bd:"#5DCAA5",cls:"chip-bom"}
+              :s>=5?{l:"Médio",c:"#854F0B",bg:"#FAEEDA",bd:"#EF9F27",cls:"chip-medio"}
+                   :{l:"Ruim",c:"#A32D2D",bg:"#FCEBEB",bd:"#F09595",cls:"chip-ruim"};
+const gt=(id)=>DB.gestao.find(g=>g.id===id)||{};
+const mediaT=(turno)=>{
+  const ids=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo").map(c=>c.id);
+  if(!ids.length)return 0;
+  return ids.reduce((a,id)=>a+score(id),0)/ids.length;
+};
+const pendentes=()=>DB.inconformidades.filter(i=>i.status==="Pendente");
+const fmtScore=s=>s.toFixed(1);
+const gravChip=g=>`<span class="chip" style="color:${GC[g]};background:${GB[g]};border-color:${GC[g]}">${g}</span>`;
+const statusChip=s=>{
+  const m={Validada:"#1D9E75",Pendente:"#854F0B",Cancelada:"#888"};
+  return `<span style="font-size:12px;color:${m[s]||"#888"}">${s}</span>`;
+};
+const faixaChip=s=>{const f=faixa(s);return `<span class="chip ${f.cls}">${f.l}</span>`};
+const barHtml=(s,w="100%")=>{
+  const c=s>=8?"#1D9E75":s>=5?"#EF9F27":"#E24B4A";
+  return `<div class="sbar" style="width:${w}"><div class="sbar-fill" style="width:${s*10}%;background:${c}"></div></div>`;
+};
+const scoreCompHtml=(cid)=>{
+  const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES&&i.status==="Validada");
+  const s=score(cid);
+  let rows=v.map(i=>`<div class="scorecomp-row">
+    <span style="color:${GC[i.gravidade]}">— ${i.gravidade}: ${i.descricao.slice(0,40)}${i.descricao.length>40?"…":""}</span>
+    <span style="color:${GC[i.gravidade]};font-weight:600">-${DESCONTO[i.gravidade].toFixed(1)}</span>
+  </div>`).join("");
+  return `<div class="scorecomp">
+    <div class="scorecomp-row"><span style="color:#6B6963">Pontuação inicial</span><span style="font-weight:600">10,0</span></div>
+    ${rows}
+    <div class="div"></div>
+    <div class="scorecomp-row" style="font-size:13px;font-weight:600">
+      <span>Pontuação Final</span><span style="color:${faixa(s).c}">${fmtScore(s)}</span>
+    </div>
+  </div>`;
+};
+const now=()=>new Date().toLocaleDateString("pt-BR");
+const uid=()=>"INC"+Date.now().toString().slice(-6);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function openModal(title,html){
+  document.getElementById("modal-title").textContent=title;
+  document.getElementById("modal-body").innerHTML=html;
+  document.getElementById("modal-bg").classList.add("open");
+}
+function closeModal(){document.getElementById("modal-bg").classList.remove("open")}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════════════════════
+function buildDemoList(){} // login real — sem acesso demo
+function doLogin(){
+  const e=document.getElementById("l-email").value.trim().toLowerCase();
+  const s=document.getElementById("l-senha").value;
+  const err=document.getElementById("login-err");
+  const u=findUser(e,s);
+  if(!u){err.textContent="E-mail ou senha incorretos.";err.style.display="block";return}
+  err.style.display="none";
+  SESSION={...u};
+  PAGE=PERFIS[u.perfil].pages[0];
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("main-layout").classList.add("visible");
+  buildLayout();renderPage();
+}
+function doLogout(){
+  SESSION=null;PAGE=null;
+  document.getElementById("main-layout").classList.remove("visible");
+  document.getElementById("login-screen").style.display="flex";
+  document.getElementById("l-email").value="";document.getElementById("l-senha").value="";
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LAYOUT
+// ═══════════════════════════════════════════════════════════════════════════
+function buildLayout(){
+  const p=PERFIS[SESSION.perfil];
+  const g=gt(SESSION.gid);
+  const pend=pendentes().length;
+
+  // Header badge
+  const badge=document.getElementById("hd-badge");
+  badge.style.background=p.bgCor;badge.style.color=p.cor;
+  badge.style.border=`.5px solid ${p.cor}40`;
+  badge.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${p.cor};display:inline-block"></span>
+    ${p.label}${g.turno&&g.turno!=="Todos"?" — "+g.turno:""}`;
+  document.getElementById("hd-user").textContent=g.nome||"";
+  document.getElementById("sb-mes").textContent=MES;
+
+  const sbPend=document.getElementById("sb-pend");
+  if(pend>0&&SESSION.perfil!=="lider"){
+    sbPend.textContent=`⚠ ${pend} pendente(s)`;sbPend.style.display="block";
+  }else{sbPend.style.display="none"}
+
+  // Sidebar nav
+  document.getElementById("nav-items").innerHTML=p.pages.map(pg=>{
+    const m=PAGE_META[pg];
+    const hasBadge=(pg.includes("inc")||pg.includes("validar"))&&pend>0;
+    const isActive=pg===PAGE;
+    return `<div class="nav-item${isActive?" active":""}" onclick="goTo('${pg}')" style="--active-color:${p.cor}">
+      <span class="icon">${m?.icon||""}</span>
+      <span style="flex:1">${m?.label||pg}</span>
+      ${hasBadge?`<span class="nav-badge">${pend}</span>`:""}
+    </div>`;
+  }).join("");
+}
+
+function goTo(pg){
+  PAGE=pg;buildLayout();renderPage();
+}
+
+function renderPage(){
+  const c=document.getElementById("content");
+  const pf=SESSION.perfil;
+  const renders={
+    lid_turno:pageLiderTurno,lid_registrar:pageLiderRegistrar,
+    sup_painel:pageSupPainel,sup_validar:pageSupValidar,sup_fechar:pageSupFechar,sup_listas:pageSupListas,
+    coord_painel:pageCoordPainel,coord_aval:pageCoordAval,coord_inc:pageCoordInc,
+    coord_turnos:pageCoordTurnos,coord_prom:pageCoordProm,
+    rgm_visao:pageRGMVisao,rgm_perf:pageRGMPerf,rgm_ranking:pageRGMRanking,
+    adm_painel:pageADMPainel,adm_colaboradores:pageADMColabs,adm_criterios:pageADMCriterios,
+    adm_gestao:pageADMGestao,adm_exportar:pageADMExportar,
+  };
+  c.innerHTML=(renders[PAGE]||pageADMPainel)();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS — LÍDER
+// ═══════════════════════════════════════════════════════════════════════════
+function pageLiderTurno(){
+  const g=gt(SESSION.gid);
+  const cols=DB.colaboradores.filter(c=>c.lidId===SESSION.gid&&c.status==="Ativo");
+  const rows=cols.map(c=>{
+    const s=score(c.id);const f=faixa(s);
+    const mi=DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.lidId===SESSION.gid&&i.mes===MES).length;
+    return `<tr>
+      <td><strong>${c.nome}</strong></td>
+      <td><span class="chip chip-gray">${c.nivel}</span></td>
+      <td><strong style="color:${f.c};font-size:16px">${fmtScore(s)}</strong>${barHtml(s,"120px")}</td>
+      <td style="color:#A32D2D;font-weight:600">${s<10?"-"+(10-s).toFixed(1):"—"}</td>
+      <td>${faixaChip(s)}</td>
+      <td style="font-size:12px">${mi} regist.</td>
+      <td><button class="btn btn-sm" onclick="modalDetColabLider('${c.id}')">Ver</button></td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Meu Turno — ${g.turno}</div>
+    <div class="ph-sub">Colaboradores sob sua responsabilidade</div></div>
+  <div class="alrt alrt-if">ℹ️ Cada colaborador inicia com <strong>10,0 pontos</strong>. Descontos aplicados após validação do supervisor.</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="card-title" style="margin:0">Colaboradores — ${g.turno}</div>
+      <span style="font-size:12px;color:#6B6963">${cols.length} colaboradores</span>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Desconto</th><th>Faixa</th><th>Minhas Inc.</th><th></th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:#A09D97;padding:2rem">Sem colaboradores.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function modalDetColabLider(cid){
+  const c=DB.colaboradores.find(x=>x.id===cid);
+  const incs=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES);
+  const incRows=incs.length?incs.map(inc=>`<div style="padding:8px 10px;border-radius:8px;background:#F6F5F1;margin-bottom:6px;font-size:12px">
+    <div style="display:flex;gap:8px;margin-bottom:4px">${gravChip(inc.gravidade)} ${statusChip(inc.status)}
+      <span style="color:#A32D2D;font-size:11px;font-weight:600">-${DESCONTO[inc.gravidade].toFixed(1)} pts</span></div>
+    <div>${inc.descricao}</div><div style="color:#A09D97;margin-top:2px">${inc.data}</div>
+  </div>`).join(""):`<div style="font-size:13px;color:#A09D97">Nenhuma inconformidade.</div>`;
+  openModal(`Detalhe — ${c.nome}`,`
+    <div class="grid3" style="margin-bottom:1rem">
+      <div class="met"><div class="met-label">Nível</div><div class="met-val" style="font-size:16px">${c.nivel}</div></div>
+      <div class="met"><div class="met-label">Turno</div><div class="met-val" style="font-size:16px">${c.turno}</div></div>
+      <div class="met"><div class="met-label">Pontuação</div><div class="met-val" style="color:${faixa(score(cid)).c}">${fmtScore(score(cid))}</div></div>
+    </div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:8px">Composição da Nota</div>
+    ${scoreCompHtml(cid)}
+    <div style="font-weight:600;font-size:13px;margin:1rem 0 8px">Inconformidades do período</div>
+    ${incRows}
+  `);
+}
+
+function pageLiderRegistrar(){
+  const g=gt(SESSION.gid);
+  const cols=DB.colaboradores.filter(c=>c.lidId===SESSION.gid&&c.status==="Ativo");
+  const minhas=DB.inconformidades.filter(i=>i.lidId===SESSION.gid&&i.mes===MES);
+  const rows=minhas.map(inc=>{
+    const c=DB.colaboradores.find(x=>x.id===inc.colaboradorId);
+    return `<tr>
+      <td>${inc.data}</td><td>${c?.nome||"—"}</td>
+      <td>${gravChip(inc.gravidade)}</td>
+      <td style="color:#A32D2D;font-weight:600">-${DESCONTO[inc.gravidade].toFixed(1)}</td>
+      <td style="font-size:12px;max-width:180px">${inc.descricao}</td>
+      <td>${statusChip(inc.status)}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Registrar Inconformidade</div>
+    <div class="ph-sub">Turno ${g.turno} — desconto aplicado após validação do supervisor</div></div>
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Registradas por mim</div><div class="met-val">${minhas.length}</div></div>
+    <div class="met"><div class="met-label">Aguardando</div><div class="met-val" style="color:#854F0B">${minhas.filter(i=>i.status==="Pendente").length}</div></div>
+    <div class="met"><div class="met-label">Validadas</div><div class="met-val" style="color:#1D9E75">${minhas.filter(i=>i.status==="Validada").length}</div></div>
+    <div class="met"><div class="met-label">Canceladas</div><div class="met-val" style="color:#888">${minhas.filter(i=>i.status==="Cancelada").length}</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="card-title" style="margin:0">Inconformidades — ${MES}</div>
+      <button class="btn btn-pr btn-sm" onclick="modalNovaInc()">+ Nova Inconformidade</button>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Data</th><th>Colaborador</th><th>Gravidade</th><th>Desconto</th><th>Descrição</th><th>Status</th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:#A09D97;padding:2rem">Nenhuma inconformidade registrada.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function modalNovaInc(){
+  const cols=DB.colaboradores.filter(c=>c.lidId===SESSION.gid&&c.status==="Ativo");
+  openModal("Nova Inconformidade",`
+    <div class="alrt alrt-if">O desconto é aplicado <strong>somente após validação do supervisor</strong>.</div>
+    <div class="fg"><label>Colaborador</label><select id="inc-col">
+      <option value="">Selecione...</option>
+      ${cols.map(c=>`<option value="${c.id}">${c.nome} (${c.nivel})</option>`).join("")}
+    </select></div>
+    <div class="fg"><label>Gravidade</label><select id="inc-grav">
+      <option value="Crítica">Crítica — desconto 3,0 pts</option>
+      <option value="Grave" selected>Grave — desconto 2,0 pts</option>
+      <option value="Média">Média — desconto 1,0 pt</option>
+      <option value="Leve">Leve — desconto 0,5 pts</option>
+    </select></div>
+    <div class="fg"><label>Descrição</label><textarea id="inc-desc" placeholder="Descreva o ocorrido..."></textarea></div>
+    <div class="fg"><label>Observação (opcional)</label><textarea id="inc-obs" placeholder="Contexto ou evidências..."></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="salvarInc()">Registrar</button>
+    </div>
+  `);
+}
+
+function salvarInc(){
+  const cid=document.getElementById("inc-col").value;
+  const desc=document.getElementById("inc-desc").value.trim();
+  const grav=document.getElementById("inc-grav").value;
+  const obs=document.getElementById("inc-obs")?.value||"";
+  if(!cid||!desc){alert("Preencha colaborador e descrição.");return}
+  DB.inconformidades.push({id:uid(),colaboradorId:cid,mes:MES,data:now(),
+    descricao:desc,gravidade:grav,lidId:SESSION.gid,status:"Pendente",supId:"",obsL:obs,obsS:""});
+  closeModal();renderPage();buildLayout();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS — SUPERVISOR
+// ═══════════════════════════════════════════════════════════════════════════
+function pageSupPainel(){
+  const g=gt(SESSION.gid);const turno=g.turno;
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)})).sort((a,b)=>b.s-a.s);
+  const med=scores.length?scores.reduce((a,x)=>a+x.s,0)/scores.length:0;
+  const pend=DB.inconformidades.filter(i=>{
+    const col=DB.colaboradores.find(c=>c.id===i.colaboradorId);
+    return col?.turno===turno&&i.status==="Pendente"&&i.mes===MES;
+  });
+  const rows=scores.map(({c,s})=>{
+    const f=faixa(s);
+    const pC=DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.status==="Pendente"&&i.mes===MES).length;
+    return `<tr>
+      <td><strong>${c.nome}</strong></td>
+      <td><span class="chip chip-gray">${c.nivel}</span></td>
+      <td>${gt(c.lidId).nome||"—"}</td>
+      <td><strong style="color:${f.c};font-size:16px">${fmtScore(s)}</strong>${barHtml(s,"100px")}</td>
+      <td>${faixaChip(s)}</td>
+      <td>${pC>0?`<span class="chip chip-medio">${pC} pendente(s)</span>`:`<span style="font-size:12px;color:#1D9E75">Em dia</span>`}</td>
+    </tr>`;
+  }).join("");
+  const confrat=med>=8?`<div class="confrat"><span style="font-size:24px">🎉</span>
+    <div><div style="font-weight:600;color:#0F6E56">Turno ${turno} elegível para confraternização!</div>
+    <div style="font-size:12px;color:#1D9E75">Média ${fmtScore(med)} ≥ 8,0</div></div></div>`:"";
+  return `<div class="ph"><div class="ph-title">Painel do Turno — ${turno}</div><div class="ph-sub">${MES} · ${g.nome}</div></div>
+  ${pend.length?`<div class="alrt alrt-wn">⚠️ ${pend.length} inconformidade(s) pendente(s). Valide para aplicar os descontos.</div>`:""}
+  ${confrat}
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Colaboradores</div><div class="met-val">${cols.length}</div></div>
+    <div class="met"><div class="met-label">Média ${turno}</div><div class="met-val" style="color:${faixa(med).c}">${fmtScore(med)}</div></div>
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:${pend.length?"#A32D2D":"#1D9E75"}">${pend.length}</div></div>
+    <div class="met"><div class="met-label">Bom/Médio/Ruim</div><div class="met-val" style="font-size:16px">${scores.filter(x=>x.s>=8).length}/${scores.filter(x=>x.s>=5&&x.s<8).length}/${scores.filter(x=>x.s<5).length}</div></div>
+  </div>
+  <div class="card"><div class="card-title">Pontuação por Colaborador</div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Colaborador</th><th>Nível</th><th>Líder</th><th>Pontuação</th><th>Faixa</th><th>Inc. Pendentes</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function pageSupValidar(){
+  const g=gt(SESSION.gid);const turno=g.turno;
+  const incs=DB.inconformidades.filter(i=>{
+    const col=DB.colaboradores.find(c=>c.id===i.colaboradorId);
+    return col?.turno===turno&&i.mes===MES;
+  });
+  const rows=incs.slice().reverse().map(inc=>{
+    const col=DB.colaboradores.find(c=>c.id===inc.colaboradorId);
+    const acoes=inc.status==="Pendente"
+      ?`<button class="btn btn-pr btn-sm" onclick="modalValidar('${inc.id}')">Validar</button>`
+      :`<span style="font-size:12px;color:#A09D97">—</span>`;
+    return `<tr>
+      <td>${inc.data}</td><td>${col?.nome||"—"}</td>
+      <td>${gravChip(inc.gravidade)}</td>
+      <td style="color:#A32D2D;font-weight:600">-${DESCONTO[inc.gravidade].toFixed(1)}</td>
+      <td style="font-size:12px;max-width:180px">${inc.descricao}</td>
+      <td>${gt(inc.lidId).nome||"—"}</td>
+      <td>${statusChip(inc.status)}</td>
+      <td>${acoes}</td>
+    </tr>`;
+  }).join("");
+  const pend=incs.filter(i=>i.status==="Pendente").length;
+  return `<div class="ph"><div class="ph-title">Validar Inconformidades — ${turno}</div>
+    <div class="ph-sub">Validar aplica o desconto; cancelar não desconta.</div></div>
+  ${pend?`<div class="alrt alrt-wn">⚠️ ${pend} pendente(s) para fechamento do mês.</div>`:""}
+  <div class="grid3" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:#854F0B">${pend}</div></div>
+    <div class="met"><div class="met-label">Validadas</div><div class="met-val" style="color:#1D9E75">${incs.filter(i=>i.status==="Validada").length}</div></div>
+    <div class="met"><div class="met-label">Canceladas</div><div class="met-val" style="color:#888">${incs.filter(i=>i.status==="Cancelada").length}</div></div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Gravidade</th><th>Desconto</th><th>Descrição</th><th>Líder</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" style="text-align:center;color:#A09D97;padding:2rem">Sem inconformidades.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+function modalValidar(incId,isCoord=false){
+  const inc=DB.inconformidades.find(i=>i.id===incId);
+  const col=DB.colaboradores.find(c=>c.id===inc.colaboradorId);
+  openModal("Validar Inconformidade",`
+    ${isCoord?`<div class="alrt alrt-if">Validando como Coordenador na ausência do supervisor.</div>`:""}
+    <div class="scorecomp" style="margin-bottom:1rem">
+      <div style="display:flex;gap:8px;margin-bottom:6px">${gravChip(inc.gravidade)}
+        <span class="chip" style="color:#A32D2D;background:#FCEBEB;border-color:#F09595">-${DESCONTO[inc.gravidade].toFixed(1)} pts</span></div>
+      <div style="font-weight:600">${inc.descricao}</div>
+      ${inc.obsL?`<div style="color:#6B6963;margin-top:4px">Obs.: ${inc.obsL}</div>`:""}
+      <div style="color:#A09D97;margin-top:4px">${inc.data} — ${col?.nome||""}</div>
+    </div>
+    <div class="fg"><label>Decisão</label><select id="val-dec" onchange="toggleGravAlt()">
+      <option value="confirmar">Confirmar — aplicar desconto de -${DESCONTO[inc.gravidade].toFixed(1)} pts</option>
+      <option value="alterar">Confirmar com gravidade diferente</option>
+      <option value="cancelar">Cancelar — sem procedência (não desconta)</option>
+    </select></div>
+    <div id="grav-alt" style="display:none" class="fg"><label>Nova Gravidade</label><select id="val-grav">
+      <option>Crítica</option><option>Grave</option><option>Média</option><option>Leve</option>
+    </select></div>
+    <div class="fg"><label>Observação</label><textarea id="val-obs" placeholder="Justificativa..."></textarea></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="confirmarValidacao('${incId}')">Confirmar</button>
+    </div>
+  `);
+}
+
+function toggleGravAlt(){
+  const d=document.getElementById("val-dec").value;
+  document.getElementById("grav-alt").style.display=d==="alterar"?"block":"none";
+}
+
+function confirmarValidacao(incId){
+  const dec=document.getElementById("val-dec").value;
+  const obs=document.getElementById("val-obs").value;
+  const ng=document.getElementById("val-grav")?.value;
+  const inc=DB.inconformidades.find(i=>i.id===incId);
+  inc.status=dec==="cancelar"?"Cancelada":"Validada";
+  if(dec==="alterar"&&ng)inc.gravidade=ng;
+  inc.supId=SESSION.gid;inc.obsS=obs;
+  closeModal();renderPage();buildLayout();
+}
+
+function pageSupFechar(){
+  const g=gt(SESSION.gid);const turno=g.turno;
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)})).sort((a,b)=>b.s-a.s);
+  const med=scores.length?scores.reduce((a,x)=>a+x.s,0)/scores.length:0;
+  const pend=DB.inconformidades.filter(i=>{
+    const col=DB.colaboradores.find(c=>c.id===i.colaboradorId);
+    return col?.turno===turno&&i.status==="Pendente"&&i.mes===MES;
+  });
+  const rows=scores.map(({c,s},i)=>{
+    const f=faixa(s);
+    return `<tr><td>${i+1}</td><td><strong>${c.nome}</strong></td><td>${c.nivel}</td>
+      <td><strong style="color:${f.c};font-size:15px">${fmtScore(s)}</strong></td>
+      <td style="color:#A32D2D">${s<10?"-"+(10-s).toFixed(1):"Sem desconto"}</td>
+      <td>${faixaChip(s)}</td></tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Fechar Mês — ${turno}</div><div class="ph-sub">Resumo final de ${MES}</div></div>
+  ${pend.length?`<div class="alrt alrt-dn">🚫 ${pend.length} inconformidade(s) pendente(s). Valide antes de fechar.</div>`:""}
+  <div class="grid3" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Média ${turno}</div><div class="met-val" style="color:${faixa(med).c}">${fmtScore(med)}</div></div>
+    <div class="met"><div class="met-label">Pendências</div><div class="met-val" style="color:${pend.length?"#A32D2D":"#1D9E75"}">${pend.length}</div></div>
+    <div class="met"><div class="met-label">Colaboradores</div><div class="met-val">${cols.length}</div></div>
+  </div>
+  <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <div class="card-title" style="margin:0">Pontuação Final — ${MES}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm" onclick="imprimirRelatorioTurno('${turno}')">🖨 Imprimir Relatório</button>
+      <button class="btn btn-pr btn-sm" ${pend.length?"disabled":""}>Fechar Mês</button>
+    </div>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Desconto Total</th><th>Faixa</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>
+  <div class="div"></div>
+  <span style="font-size:13px;color:#6B6963">Bom: ${scores.filter(x=>x.s>=8).length} · Médio: ${scores.filter(x=>x.s>=5&&x.s<8).length} · Ruim: ${scores.filter(x=>x.s<5).length}</span>
+  </div>`;
+}
+
+function pageSupListas(){
+  const g=gt(SESSION.gid);const turno=g.turno;
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)}));
+  const bom=scores.filter(x=>x.s>=8).sort((a,b)=>b.s-a.s);
+  const med=scores.filter(x=>x.s>=5&&x.s<8).sort((a,b)=>b.s-a.s);
+  const ruim=scores.filter(x=>x.s<5).sort((a,b)=>a.s-b.s);
+  const lista=(titulo,items,cor,desc,printFn,cls)=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;margin-bottom:.75rem">
+      <div><div style="font-weight:600;font-size:14px;color:${cor}">${titulo}</div>
+        <div style="font-size:12px;color:#6B6963;margin-top:2px">${desc}</div></div>
+      <span style="font-weight:600;font-size:18px;color:${cor}">${items.length}</span>
+    </div>
+    ${items.length?items.map(({c,s})=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0;border-bottom:.5px solid #E2E0DA">
+      <span>${c.nome} <span style="font-size:11px;color:#A09D97">(${c.nivel})</span></span>
+      <strong style="color:${cor}">${fmtScore(s)}</strong>
+    </div>`).join(""):`<div style="font-size:13px;color:#A09D97">Nenhum colaborador.</div>`}
+    <button class="btn btn-sm btn-full ${cls}" style="margin-top:.75rem" onclick="${printFn}">🖨 Imprimir Lista</button>
+  </div>`;
+  return `<div class="ph"><div class="ph-title">Listas e Impressão — ${turno}</div>
+    <div class="ph-sub">Imprima listas por faixa de pontuação — ${MES}</div></div>
+  <div class="grid3">
+    ${lista("Bom (8–10)",bom,"#1D9E75","Ranking e elegíveis promoção","imprimirLista('bom','"+turno+"')","btn")}
+    ${lista("Médio (5–7)",med,"#854F0B","Para acompanhamento do gestor","imprimirLista('medio','"+turno+"')","btn-am")}
+    ${lista("Ruim (0–4)",ruim,"#A32D2D","Feedback individual obrigatório","imprimirLista('ruim','"+turno+"')","btn-dn")}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS — COORDENADOR
+// ═══════════════════════════════════════════════════════════════════════════
+function pageCoordPainel(){
+  const turnos=["Manhã","Tarde","Noite"];
+  const medias=turnos.map(t=>({t,m:mediaT(t)}));
+  const all=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>score(c.id));
+  const mg=all.length?all.reduce((a,b)=>a+b,0)/all.length:0;
+  const pend=pendentes().length;
+  const confrats=medias.filter(x=>x.m>=8).map(x=>`<div class="confrat">
+    <span style="font-size:24px">🎉</span>
+    <div><div style="font-weight:600;color:#0F6E56">Turno ${x.t} — confraternização!</div>
+    <div style="font-size:12px;color:#1D9E75">Média ${fmtScore(x.m)} ≥ 8,0</div></div>
+  </div>`).join("");
+  const turnoCards=turnos.map(t=>{
+    const m=mediaT(t);const f=faixa(m);
+    const sc=DB.colaboradores.filter(c=>c.turno===t&&c.status==="Ativo").map(c=>score(c.id));
+    return `<div class="card"><div style="font-weight:600;font-size:13px">${t}</div>
+      <div style="font-size:26px;font-weight:500;color:${f.c};margin:8px 0">${fmtScore(m)}</div>
+      ${barHtml(m)}
+      <div style="display:flex;gap:8px;font-size:11px;margin-top:6px">
+        <span style="color:#1D9E75">${sc.filter(s=>s>=8).length} bom</span>
+        <span style="color:#854F0B">${sc.filter(s=>s>=5&&s<8).length} médio</span>
+        <span style="color:#A32D2D">${sc.filter(s=>s<5).length} ruim</span>
+      </div>
+    </div>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Painel Coordenador</div><div class="ph-sub">Todos os turnos — ${MES}</div></div>
+  ${pend?`<div class="alrt alrt-wn">⚠️ ${pend} inconformência(s) pendentes de validação.</div>`:""}
+  ${confrats}
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Média Geral</div><div class="met-val" style="color:${faixa(mg).c}">${fmtScore(mg)}</div></div>
+    ${medias.map(x=>`<div class="met"><div class="met-label">Turno ${x.t}</div><div class="met-val" style="color:${faixa(x.m).c}">${fmtScore(x.m)}</div></div>`).join("")}
+  </div>
+  <div class="grid3">${turnoCards}</div>`;
+}
+
+function pageCoordAval(){
+  const [turno,setTurno]=[window._coordTurno||"Manhã",t=>{window._coordTurno=t;renderPage()}];
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)})).sort((a,b)=>b.s-a.s);
+  const tabs=["Manhã","Tarde","Noite"].map(t=>
+    `<button class="tab${t===turno?" active":""}" onclick="window._coordTurno='${t}';renderPage()">${t}</button>`
+  ).join("");
+  const rows=scores.map(({c,s},i)=>{
+    const f=faixa(s);
+    return `<tr><td>${i+1}</td><td><strong>${c.nome}</strong></td><td><span class="chip chip-gray">${c.nivel}</span></td>
+      <td><strong style="color:${f.c};font-size:16px">${fmtScore(s)}</strong>${barHtml(s,"100px")}</td>
+      <td style="color:#A32D2D;font-weight:600">${s<10?"-"+(10-s).toFixed(1):"—"}</td>
+      <td>${faixaChip(s)}</td>
+      <td><button class="btn btn-sm" onclick="modalDetColab('${c.id}')">Ver</button></td></tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Avaliações por Turno</div>
+    <div class="ph-sub">Pontuação atual: 10 menos descontos por inconformidade validada</div></div>
+  <div class="tabs">${tabs}</div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Desconto</th><th>Faixa</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:#A09D97;padding:2rem">Sem colaboradores.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+function modalDetColab(cid){
+  const c=DB.colaboradores.find(x=>x.id===cid);
+  const incs=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES);
+  const incRows=incs.map(inc=>`<div style="padding:8px 10px;border-radius:8px;background:#F6F5F1;margin-bottom:6px;font-size:12px">
+    <div style="display:flex;gap:8px;margin-bottom:4px">${gravChip(inc.gravidade)} ${statusChip(inc.status)}</div>
+    <div>${inc.descricao}</div>
+  </div>`).join("")||`<div style="font-size:13px;color:#A09D97">Nenhuma inconformidade.</div>`;
+  openModal(`Avaliação — ${c.nome}`,`${scoreCompHtml(cid)}
+    <div style="font-weight:600;font-size:13px;margin:1rem 0 8px">Inconformidades</div>${incRows}
+    <div style="display:flex;gap:8px;margin-top:1rem">
+      <button class="btn btn-sm" onclick="imprimirIndividual('${cid}')">🖨 Imprimir Avaliação</button>
+      ${score(cid)<5?`<button class="btn btn-sm btn-dn" onclick="imprimirFeedback('${cid}')">🖨 Imprimir Feedback</button>`:""}
+    </div>
+  `);
+}
+
+function pageCoordInc(){
+  const incs=DB.inconformidades.filter(i=>i.mes===MES).slice().reverse();
+  const pend=incs.filter(i=>i.status==="Pendente").length;
+  const rows=incs.map(inc=>{
+    const col=DB.colaboradores.find(c=>c.id===inc.colaboradorId);
+    const acoes=inc.status==="Pendente"
+      ?`<button class="btn btn-pr btn-sm" onclick="modalValidar('${inc.id}',true)">Validar</button>`
+      :`<span style="font-size:12px;color:#A09D97">—</span>`;
+    return `<tr>
+      <td>${inc.data}</td><td>${col?.nome||"—"}</td>
+      <td><span class="chip chip-gray">${col?.turno||"—"}</span></td>
+      <td>${gravChip(inc.gravidade)}</td>
+      <td style="color:#A32D2D;font-weight:600">-${DESCONTO[inc.gravidade].toFixed(1)}</td>
+      <td style="font-size:12px;max-width:160px">${inc.descricao}</td>
+      <td>${gt(inc.lidId).nome||"—"}</td>
+      <td>${statusChip(inc.status)}</td><td>${acoes}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Inconformidades — Todos os Turnos</div>
+    <div class="ph-sub">Coordenador pode validar na ausência do supervisor.</div></div>
+  ${pend?`<div class="alrt alrt-wn">⚠️ ${pend} pendente(s) de validação.</div>`:""}
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Turno</th><th>Gravidade</th><th>Desc.</th><th>Descrição</th><th>Líder</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="9" style="text-align:center;color:#A09D97;padding:2rem">Sem inconformidades.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+function pageCoordTurnos(){
+  const colRows=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>`<tr>
+    <td>${c.nome}</td><td><span class="chip chip-gray">${c.nivel}</span></td><td>${c.turno}</td>
+    <td><button class="btn btn-sm" onclick="modalAlterarTurno('colab','${c.id}')">Alterar</button></td>
+  </tr>`).join("");
+  const gestRows=DB.gestao.filter(g=>g.cargo==="lider"||g.cargo==="supervisor").map(g=>`<tr>
+    <td>${g.nome}</td><td><span class="chip chip-gray">${g.cargo}</span></td><td>${g.turno}</td>
+    <td><button class="btn btn-sm" onclick="modalAlterarTurno('gestao','${g.id}')">Alterar</button></td>
+  </tr>`).join("");
+  return `<div class="ph"><div class="ph-title">Gestão de Turnos</div>
+    <div class="ph-sub">Alterar turno de líderes, supervisores e colaboradores</div></div>
+  <div class="grid2">
+    <div class="card"><div class="card-title">Líderes e Supervisores</div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Nome</th><th>Cargo</th><th>Turno</th><th></th></tr></thead>
+        <tbody>${gestRows}</tbody>
+      </table></div>
+    </div>
+    <div class="card"><div class="card-title">Colaboradores</div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Nome</th><th>Nível</th><th>Turno</th><th></th></tr></thead>
+        <tbody>${colRows}</tbody>
+      </table></div>
+    </div>
+  </div>`;
+}
+
+function modalAlterarTurno(tipo,id){
+  const item=tipo==="colab"?DB.colaboradores.find(c=>c.id===id):DB.gestao.find(g=>g.id===id);
+  openModal(`Alterar Turno — ${item.nome}`,`
+    <div class="fg"><label>Turno Atual</label><input value="${item.turno}" disabled style="opacity:.6"/></div>
+    <div class="fg"><label>Novo Turno</label><select id="nt">
+      <option>Manhã</option><option>Tarde</option><option>Noite</option>
+    </select></div>
+    <div class="fg"><label>Data de Vigência</label><input type="date"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="confirmarTurno('${tipo}','${id}')">Confirmar</button>
+    </div>
+  `);
+}
+
+function confirmarTurno(tipo,id){
+  const nt=document.getElementById("nt").value;
+  if(tipo==="colab"){const c=DB.colaboradores.find(x=>x.id===id);c.turno=nt;}
+  else{const g=DB.gestao.find(x=>x.id===id);g.turno=nt;}
+  closeModal();renderPage();
+}
+
+function pageCoordProm(){
+  const scores=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>({c,s:score(c.id)}))
+    .sort((a,b)=>b.s-a.s);
+  const el=scores.filter(x=>x.s>=8);
+  const medals=["🥇","🥈","🥉"];
+  const rows=el.map(({c,s},i)=>{
+    const f=faixa(s);
+    return `<tr>
+      <td><span style="font-weight:600">${medals[i]||i+1}</span></td>
+      <td><strong>${c.nome}</strong></td><td>${c.nivel}</td>
+      <td><span class="chip chip-gray">${c.turno}</span></td>
+      <td><strong style="color:${f.c};font-size:15px">${fmtScore(s)}</strong></td>
+      <td>${gt(c.supId).nome||"—"}</td>
+      <td>${i<3?`<span class="chip chip-bom">Indicar promoção</span>`:`<button class="btn btn-sm">Indicar</button>`}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Elegíveis para Promoção</div>
+    <div class="ph-sub">Pontuação ≥ 8,0 — ${MES}</div></div>
+  <div class="met" style="margin-bottom:1rem;max-width:200px">
+    <div class="met-label">Total elegíveis</div>
+    <div class="met-val" style="color:#1D9E75">${el.length}</div>
+    <div class="met-sub">Faixa Bom (8–10)</div>
+  </div>
+  <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+    <div class="card-title" style="margin:0">Ranking de Elegíveis</div>
+    <button class="btn btn-sm" onclick="imprimirRanking()">🖨 Imprimir Ranking</button>
+  </div>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Turno</th><th>Pontuação</th><th>Supervisor</th><th>Status</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:#A09D97;padding:2rem">Nenhum elegível.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS — RGM
+// ═══════════════════════════════════════════════════════════════════════════
+function pageRGMVisao(){
+  const turnos=["Manhã","Tarde","Noite"];
+  const medias=turnos.map(t=>({t,m:mediaT(t)}));
+  const mg=medias.reduce((a,x)=>a+x.m,0)/3;
+  const confrats=medias.filter(x=>x.m>=8).map(x=>`<div class="confrat">
+    <span style="font-size:24px">🎉</span>
+    <div><div style="font-weight:600;color:#0F6E56">Turno ${x.t} — confraternização!</div>
+    <div style="font-size:12px;color:#1D9E75">Média ${fmtScore(x.m)}</div></div>
+  </div>`).join("");
+  const histLabels=["Fev/25","Mar/25","Abr/25","Mai/25"];
+  const histRows=turnos.map((t,ti)=>{
+    const cs=["#EF9F27","#1D9E75","#888780"][ti];
+    const hist=DB.historico[t]||[];
+    const atual=mediaT(t);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:${cs};font-weight:600">● ${t}</span>
+        <div style="display:flex;gap:12px">
+          ${hist.map(([m,v])=>`<span><span style="color:#A09D97;font-size:11px">${m==="Fev"?"Fev/25":m==="Mar"?"Mar/25":"Abr/25"} </span><strong style="color:${cs}">${v.toFixed(1)}</strong></span>`).join("")}
+          <span><span style="color:#A09D97;font-size:11px">Mai/25 </span><strong style="color:${cs}">${fmtScore(atual)}</strong></span>
+        </div>
+      </div>${barHtml(atual)}
+    </div>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Visão Geral — RGM</div><div class="ph-sub">Painel executivo — ${MES}</div></div>
+  ${confrats}
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Média Geral</div><div class="met-val" style="color:${faixa(mg).c}">${fmtScore(mg)}</div></div>
+    ${medias.map(x=>`<div class="met"><div class="met-label">Turno ${x.t}</div><div class="met-val" style="color:${faixa(x.m).c}">${fmtScore(x.m)}</div></div>`).join("")}
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="card-title">Performance por Turno</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;height:100px;padding-bottom:24px">
+        ${medias.map(({t,m})=>{const c=m>=8?"#1D9E75":m>=5?"#EF9F27":"#E24B4A";return`
+          <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:3px">
+            <span style="font-size:10px;font-weight:600;color:${c}">${fmtScore(m)}</span>
+            <div style="width:100%;height:${(m/10)*60+4}px;background:${c};border-radius:3px 3px 0 0;min-height:4px"></div>
+            <span style="font-size:10px;color:#A09D97">${t}</span>
+          </div>`}).join("")}
+      </div>
+    </div>
+    <div class="card"><div class="card-title">Histórico Mensal</div>${histRows}</div>
+  </div>`;
+}
+
+function pageRGMPerf(){
+  const turnos=["Manhã","Tarde","Noite"];
+  return `<div class="ph"><div class="ph-title">Performance Detalhada — ${MES}</div></div>
+  ${turnos.map(turno=>{
+    const sc=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo").map(c=>({c,s:score(c.id)})).sort((a,b)=>b.s-a.s);
+    const m=sc.length?sc.reduce((a,x)=>a+x.s,0)/sc.length:0;
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div><div class="card-title" style="margin:0">Turno ${turno}</div>
+          <div style="font-size:12px;color:#6B6963">${sc.length} colaboradores</div></div>
+        <div style="text-align:right"><div style="font-size:24px;font-weight:500;color:${faixa(m).c}">${fmtScore(m)}</div>
+          ${faixaChip(m)}</div>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Faixa</th><th>Inc. Validadas</th></tr></thead>
+        <tbody>${sc.map(({c,s})=>{
+          const f=faixa(s);const qi=DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validada").length;
+          return `<tr><td>${c.nome}</td><td>${c.nivel}</td>
+            <td><strong style="color:${f.c}">${fmtScore(s)}</strong></td>
+            <td>${faixaChip(s)}</td>
+            <td style="color:${qi>0?"#A32D2D":"#1D9E75"}">${qi}</td></tr>`;
+        }).join("")}</tbody>
+      </table></div>
+    </div>`;
+  }).join("")}`;
+}
+
+function pageRGMRanking(){
+  const filt=window._rgmFilt||"todos";
+  const scores=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>({c,s:score(c.id)}))
+    .sort((a,b)=>b.s-a.s)
+    .filter(x=>filt==="bom"?x.s>=8:filt==="medio"?x.s>=5&&x.s<8:filt==="ruim"?x.s<5:true);
+  const medals=["🥇","🥈","🥉"];
+  const tabs=[["todos","Todos"],["bom","Bom (8–10)"],["medio","Médio (5–7)"],["ruim","Ruim (0–4)"]].map(([v,l])=>
+    `<button class="tab${filt===v?" active":""}" onclick="window._rgmFilt='${v}';renderPage()">${l}</button>`
+  ).join("");
+  const rows=scores.map(({c,s},i)=>{
+    const f=faixa(s);const qi=DB.inconformidades.filter(inc=>inc.colaboradorId===c.id&&inc.mes===MES&&inc.status==="Validada").length;
+    return `<tr>
+      <td><span style="font-weight:600">${medals[i]||i+1}</span></td>
+      <td><strong>${c.nome}</strong></td><td>${c.nivel}</td>
+      <td><span class="chip chip-gray">${c.turno}</span></td>
+      <td><strong style="color:${f.c};font-size:15px">${fmtScore(s)}</strong></td>
+      <td>${faixaChip(s)}</td>
+      <td style="color:${qi>0?"#A32D2D":"#1D9E75"}">${qi}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Ranking Geral — ${MES}</div></div>
+  <div style="display:flex;gap:4px;align-items:center;margin-bottom:1rem">
+    <div class="tabs" style="margin:0">${tabs}</div>
+    <button class="btn btn-sm" style="margin-left:auto" onclick="imprimirRanking()">🖨 Imprimir</button>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Turno</th><th>Pontuação</th><th>Faixa</th><th>Inc.</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:#A09D97;padding:2rem">Nenhum resultado.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS — ADM
+// ═══════════════════════════════════════════════════════════════════════════
+function pageADMPainel(){
+  const all=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>score(c.id));
+  const mg=all.length?all.reduce((a,b)=>a+b,0)/all.length:0;
+  const turnos=["Manhã","Tarde","Noite"];
+  const pend=pendentes().length;
+  return `<div class="ph"><div class="ph-title">Painel ADM</div><div class="ph-sub">Visão total — ${MES}</div></div>
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Colaboradores ativos</div><div class="met-val">${DB.colaboradores.filter(c=>c.status==="Ativo").length}</div></div>
+    <div class="met"><div class="met-label">Média Geral</div><div class="met-val" style="color:${faixa(mg).c}">${fmtScore(mg)}</div></div>
+    <div class="met"><div class="met-label">Inconform. no mês</div><div class="met-val" style="color:#A32D2D">${DB.inconformidades.filter(i=>i.mes===MES).length}</div></div>
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:${pend?"#A32D2D":"#1D9E75"}">${pend}</div></div>
+  </div>
+  <div class="grid3">
+    ${turnos.map(t=>{const m=mediaT(t);const f=faixa(m);return`<div class="card">
+      <div style="font-weight:600;font-size:13px">Turno ${t}</div>
+      <div style="font-size:26px;font-weight:500;color:${f.c};margin:8px 0">${fmtScore(m)}</div>
+      ${barHtml(m)}
+      ${m>=8?`<div style="font-size:11px;color:#1D9E75;margin-top:6px">✓ Elegível confraternização</div>`:""}
+    </div>`}).join("")}
+  </div>
+  <div class="card"><div class="card-title">Inconformidades recentes</div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Data</th><th>Colaborador</th><th>Gravidade</th><th>Desconto</th><th>Status</th></tr></thead>
+      <tbody>${DB.inconformidades.filter(i=>i.mes===MES).slice(-5).reverse().map(inc=>{
+        const col=DB.colaboradores.find(c=>c.id===inc.colaboradorId);
+        return `<tr><td>${inc.data}</td><td>${col?.nome||"—"}</td>
+          <td>${gravChip(inc.gravidade)}</td>
+          <td style="color:#A32D2D">-${DESCONTO[inc.gravidade].toFixed(1)}</td>
+          <td>${statusChip(inc.status)}</td></tr>`;
+      }).join("")}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function pageADMColabs(){
+  const tab=window._admColTab||"lista";
+  const tabBtns=[["lista","Lista"],["add","Adicionar"]].map(([v,l])=>
+    `<button class="tab${tab===v?" active":""}" onclick="window._admColTab='${v}';renderPage()">${l}</button>`
+  ).join("");
+  if(tab==="add"){
+    return `<div class="ph"><div class="ph-title">Colaboradores</div></div>
+    <div class="tabs">${tabBtns}</div>
+    <div class="card" style="max-width:560px">
+      <div class="card-title">Adicionar Colaborador</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label>Matrícula</label><input id="ac-id" placeholder="001"/></div>
+        <div class="fg"><label>Nível</label><select id="ac-niv"><option>Auxiliar</option><option>Focal</option><option>Assistente</option></select></div>
+      </div>
+      <div class="fg"><label>Nome Completo</label><input id="ac-nome"/></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label>Turno</label><select id="ac-turno"><option>Manhã</option><option>Tarde</option><option>Noite</option></select></div>
+        <div class="fg"><label>Status</label><select id="ac-status"><option>Ativo</option><option>Inativo</option></select></div>
+      </div>
+      <div class="fg"><label>Cargo</label><input id="ac-cargo"/></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn" onclick="window._admColTab='lista';renderPage()">Cancelar</button>
+        <button class="btn btn-pr" onclick="admAddColab()">Adicionar</button>
+      </div>
+    </div>`;
+  }
+  const rows=DB.colaboradores.map(c=>`<tr>
+    <td>${c.id}</td><td>${c.nome}</td>
+    <td><span class="chip chip-gray">${c.nivel}</span></td>
+    <td>${c.turno}</td><td>${c.cargo}</td>
+    <td><span class="chip ${c.status==="Ativo"?"chip-bom":"chip-gray"}">${c.status}</span></td>
+    <td><strong style="color:${faixa(score(c.id)).c}">${fmtScore(score(c.id))}</strong></td>
+    <td><button class="btn btn-sm ${c.status==="Ativo"?"btn-dn":""}" onclick="admToggleStatus('${c.id}')">${c.status==="Ativo"?"Inativar":"Reativar"}</button></td>
+  </tr>`).join("");
+  return `<div class="ph"><div class="ph-title">Colaboradores</div><div class="ph-sub">Cadastro e gestão</div></div>
+  <div class="tabs">${tabBtns}</div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="card-title" style="margin:0">${DB.colaboradores.length} colaboradores cadastrados</div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Matrícula</th><th>Nome</th><th>Nível</th><th>Turno</th><th>Cargo</th><th>Status</th><th>Pontuação</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function admAddColab(){
+  const id=document.getElementById("ac-id").value.trim();
+  const nome=document.getElementById("ac-nome").value.trim();
+  if(!nome){alert("Preencha o nome.");return}
+  DB.colaboradores.push({
+    id:id||"C"+Date.now().toString().slice(-4),
+    nome,nivel:document.getElementById("ac-niv").value,
+    turno:document.getElementById("ac-turno").value,
+    cargo:document.getElementById("ac-cargo").value,
+    status:document.getElementById("ac-status").value,
+    supId:"",lidId:"",
+  });
+  window._admColTab="lista";renderPage();
+}
+
+function admToggleStatus(id){
+  const c=DB.colaboradores.find(x=>x.id===id);
+  c.status=c.status==="Ativo"?"Inativo":"Ativo";renderPage();
+}
+
+function pageADMCriterios(){
+  const nivs=["Auxiliar","Focal","Assistente"];
+  const blocks=nivs.map(niv=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div class="card-title" style="margin:0">${niv} — ${(DB.criterios[niv]||[]).length} critérios</div>
+    </div>
+    ${(DB.criterios[niv]||[]).map((c,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:6px 0;border-bottom:.5px solid #E2E0DA">
+      <span>• ${c}</span>
+      <button class="btn btn-sm btn-dn" onclick="admRemCrit('${niv}',${i})">Remover</button>
+    </div>`).join("")}
+  </div>`).join("");
+  return `<div class="ph"><div class="ph-title">Critérios de Avaliação</div>
+    <div class="ph-sub">Critérios por nível. A pontuação parte de 10,0 e desconta por inconformidade validada.</div></div>
+  <div class="alrt alrt-if">ℹ️ Critérios são referência para os líderes. A pontuação é automática: 10 − descontos por inconformidade validada.</div>
+  ${blocks}
+  <div class="card"><div class="card-title">Adicionar Critério</div>
+    <div style="display:grid;grid-template-columns:1fr 160px 120px;gap:8px">
+      <input id="nc-text" placeholder="Nome do critério..."/>
+      <select id="nc-niv"><option>Auxiliar</option><option>Focal</option><option>Assistente</option></select>
+      <button class="btn btn-pr" onclick="admAddCrit()">+ Adicionar</button>
+    </div>
+  </div>`;
+}
+
+function admAddCrit(){
+  const txt=document.getElementById("nc-text").value.trim();
+  const niv=document.getElementById("nc-niv").value;
+  if(!txt)return;
+  DB.criterios[niv]=[...(DB.criterios[niv]||[]),txt];
+  renderPage();
+}
+function admRemCrit(niv,idx){DB.criterios[niv].splice(idx,1);renderPage();}
+
+function pageADMGestao(){
+  const tab=window._admGestTab||"lista";
+  const cargos={adm:"Administrador",rgm:"RGM",coordenador:"Coordenador",supervisor:"Supervisor",lider:"Líder"};
+  const tabBtns=[["lista","Usuários Cadastrados"],["add","Cadastrar Novo Usuário"]].map(([v,l])=>
+    `<button class="tab${tab===v?" active":""}" onclick="window._admGestTab='${v}';renderPage()">${l}</button>`
+  ).join("");
+
+  if(tab==="add"){
+    return `<div class="ph"><div class="ph-title">Equipe de Gestão</div>
+      <div class="ph-sub">Cadastro de usuários do sistema</div></div>
+    <div class="tabs">${tabBtns}</div>
+    <div class="card" style="max-width:560px">
+      <div class="card-title">Cadastrar Novo Usuário</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label>Nome Completo *</label><input id="gu-nome" placeholder="Ex: João Silva"/></div>
+        <div class="fg"><label>E-mail *</label><input type="email" id="gu-email" placeholder="email@empresa.com"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label>Senha *</label><input type="password" id="gu-senha" placeholder="Mínimo 6 caracteres"/></div>
+        <div class="fg"><label>Confirmar Senha *</label><input type="password" id="gu-senha2" placeholder="Repita a senha"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fg"><label>Nível de Acesso *</label>
+          <select id="gu-cargo" onchange="admGestaoCargoChange()">
+            <option value="">Selecione...</option>
+            <option value="lider">Líder</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="coordenador">Coordenador</option>
+            <option value="rgm">RGM</option>
+            <option value="adm">Administrador</option>
+          </select>
+        </div>
+        <div class="fg"><label>Turno</label>
+          <select id="gu-turno">
+            <option value="Manhã">Manhã</option>
+            <option value="Tarde">Tarde</option>
+            <option value="Noite">Noite</option>
+            <option value="Todos">Todos (Coord/RGM/ADM)</option>
+          </select>
+        </div>
+      </div>
+      <div id="gu-info" class="alrt alrt-if" style="display:none"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+        <button class="btn" onclick="window._admGestTab='lista';renderPage()">Cancelar</button>
+        <button class="btn btn-pr" onclick="admSalvarGestao()">Cadastrar Usuário</button>
+      </div>
+    </div>`;
+  }
+
+  // Aba lista
+  const rows=DB.gestao.map(g=>{
+    const isAdmin=g.id==="G008";
+    return `<tr>
+      <td style="font-size:11px;color:#A09D97">${g.id}</td>
+      <td><strong>${g.nome}</strong></td>
+      <td><span class="chip chip-gray">${cargos[g.cargo]||g.cargo}</span></td>
+      <td>${g.turno}</td>
+      <td style="font-size:12px">${g.email}</td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="modalEditarGestao('${g.id}')">Editar</button>
+          ${!isAdmin?`<button class="btn btn-sm btn-dn" onclick="admRemoverGestao('${g.id}')">Remover</button>`:""}
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="ph"><div class="ph-title">Equipe de Gestão</div>
+    <div class="ph-sub">${DB.gestao.length} usuário(s) cadastrado(s) — líderes, supervisores, coordenadores, RGM e administradores</div></div>
+  <div class="tabs">${tabBtns}</div>
+  <div class="card">
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>ID</th><th>Nome</th><th>Nível de Acesso</th><th>Turno</th><th>E-mail</th><th>Ações</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function admGestaoCargoChange(){
+  const cargo=document.getElementById("gu-cargo")?.value;
+  const turno=document.getElementById("gu-turno");
+  const info=document.getElementById("gu-info");
+  if(!turno||!info)return;
+  if(cargo==="coordenador"||cargo==="rgm"||cargo==="adm"){
+    turno.value="Todos";
+    info.style.display="block";
+    info.textContent=`Nível ${cargo==="adm"?"Administrador":cargo==="rgm"?"RGM":"Coordenador"} tem acesso a todos os turnos.`;
+  }else{
+    info.style.display="none";
+  }
+}
+
+function admSalvarGestao(){
+  const nome=document.getElementById("gu-nome")?.value.trim();
+  const email=document.getElementById("gu-email")?.value.trim().toLowerCase();
+  const senha=document.getElementById("gu-senha")?.value;
+  const senha2=document.getElementById("gu-senha2")?.value;
+  const cargo=document.getElementById("gu-cargo")?.value;
+  const turno=document.getElementById("gu-turno")?.value;
+  const info=document.getElementById("gu-info");
+
+  if(!nome||!email||!senha||!cargo){
+    info.style.display="block";info.className="alrt alrt-dn";
+    info.textContent="Preencha todos os campos obrigatórios (*)";return;
+  }
+  if(senha.length<6){
+    info.style.display="block";info.className="alrt alrt-dn";
+    info.textContent="A senha deve ter pelo menos 6 caracteres.";return;
+  }
+  if(senha!==senha2){
+    info.style.display="block";info.className="alrt alrt-dn";
+    info.textContent="As senhas não conferem.";return;
+  }
+  if(DB.gestao.find(g=>g.email===email)){
+    info.style.display="block";info.className="alrt alrt-dn";
+    info.textContent="Este e-mail já está cadastrado.";return;
+  }
+  const novoId="G"+String(Date.now()).slice(-6);
+  DB.gestao.push({id:novoId,nome,cargo,turno,email,senha});
+  window._admGestTab="lista";
+  renderPage();
+}
+
+function admRemoverGestao(gid){
+  if(!confirm("Remover este usuário? Esta ação não pode ser desfeita."))return;
+  const idx=DB.gestao.findIndex(g=>g.id===gid);
+  if(idx>=0)DB.gestao.splice(idx,1);
+  renderPage();
+}
+
+function modalEditarGestao(gid){
+  const g=DB.gestao.find(x=>x.id===gid);
+  if(!g)return;
+  const cargos={adm:"Administrador",rgm:"RGM",coordenador:"Coordenador",supervisor:"Supervisor",lider:"Líder"};
+  openModal(`Editar Usuário — ${g.nome}`,`
+    <div class="fg"><label>Nome Completo</label><input id="eg-nome" value="${g.nome}"/></div>
+    <div class="fg"><label>E-mail</label><input type="email" id="eg-email" value="${g.email}"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fg"><label>Nova Senha <span style="color:#A09D97;font-size:11px">(deixe em branco para manter)</span></label>
+        <input type="password" id="eg-senha" placeholder="Nova senha..."/></div>
+      <div class="fg"><label>Confirmar Nova Senha</label>
+        <input type="password" id="eg-senha2" placeholder="Repita..."/></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="fg"><label>Nível de Acesso</label>
+        <select id="eg-cargo">
+          ${["lider","supervisor","coordenador","rgm","adm"].map(c=>
+            `<option value="${c}"${g.cargo===c?" selected":""}>${cargos[c]}</option>`
+          ).join("")}
+        </select>
+      </div>
+      <div class="fg"><label>Turno</label>
+        <select id="eg-turno">
+          ${["Manhã","Tarde","Noite","Todos"].map(t=>
+            `<option value="${t}"${g.turno===t?" selected":""}>${t}</option>`
+          ).join("")}
+        </select>
+      </div>
+    </div>
+    <div id="eg-err" class="alrt alrt-dn" style="display:none"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="admConfirmarEdicao('${gid}')">Salvar</button>
+    </div>
+  `);
+}
+
+function admConfirmarEdicao(gid){
+  const g=DB.gestao.find(x=>x.id===gid);
+  if(!g)return;
+  const nome=document.getElementById("eg-nome").value.trim();
+  const email=document.getElementById("eg-email").value.trim().toLowerCase();
+  const senha=document.getElementById("eg-senha").value;
+  const senha2=document.getElementById("eg-senha2").value;
+  const cargo=document.getElementById("eg-cargo").value;
+  const turno=document.getElementById("eg-turno").value;
+  const err=document.getElementById("eg-err");
+
+  if(!nome||!email){err.style.display="block";err.textContent="Nome e e-mail são obrigatórios.";return}
+  const duplicado=DB.gestao.find(x=>x.email===email&&x.id!==gid);
+  if(duplicado){err.style.display="block";err.textContent="Este e-mail já está em uso por outro usuário.";return}
+  if(senha){
+    if(senha.length<6){err.style.display="block";err.textContent="A senha deve ter pelo menos 6 caracteres.";return}
+    if(senha!==senha2){err.style.display="block";err.textContent="As senhas não conferem.";return}
+    g.senha=senha;
+  }
+  g.nome=nome;g.email=email;g.cargo=cargo;g.turno=turno;
+  closeModal();renderPage();
+}
+
+function pageADMExportar(){
+  return `<div class="ph"><div class="ph-title">Exportar / Imprimir</div>
+    <div class="ph-sub">Todos os documentos disponíveis para impressão diretamente pelo navegador</div></div>
+  <div class="alrt alrt-if">ℹ️ Use o botão de impressão do navegador (Ctrl+P / Cmd+P) após clicar em "Imprimir". Escolha "Salvar como PDF" para gerar o arquivo.</div>
+  <div class="grid2">
+    <div class="card"><div class="card-title">📄 Avaliações Individuais</div>
+      ${DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>`
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:.5px solid #E2E0DA;font-size:13px">
+          <span>${c.nome} <span style="color:#A09D97;font-size:11px">${c.nivel} · ${c.turno}</span></span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm" onclick="imprimirIndividual('${c.id}')">🖨 Avaliação</button>
+            ${score(c.id)<5?`<button class="btn btn-sm btn-dn" onclick="imprimirFeedback('${c.id}')">🖨 Feedback</button>`:""}
+          </div>
+        </div>`).join("")}
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Relatórios por Turno</div>
+      ${["Manhã","Tarde","Noite"].map(t=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid #E2E0DA">
+        <span style="font-weight:600">Turno ${t}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="imprimirRelatorioTurno('${t}')">🖨 Relatório</button>
+          <button class="btn btn-sm btn-dn" onclick="imprimirLista('ruim','${t}')">🖨 Ruim</button>
+          <button class="btn btn-sm btn-am" onclick="imprimirLista('medio','${t}')">🖨 Médio</button>
+        </div>
+      </div>`).join("")}
+      <div style="margin-top:1rem;padding-top:1rem;border-top:.5px solid #E2E0DA">
+        <button class="btn btn-pr btn-full" onclick="imprimirRanking()">🖨 Ranking Geral</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// IMPRESSÃO — todos os documentos via window.print()
+// ═══════════════════════════════════════════════════════════════════════════
+function doImprimir(html){
+  const area=document.getElementById("print-area");
+  area.innerHTML=`<div class="print-doc">${html}</div>`;
+  closeModal();
+  setTimeout(()=>window.print(),100);
+}
+
+function printHeader(nome,nivel,turno,mes,matricula){
+  return `<div class="print-header">
+    <div>
+      <div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+      <h1>${nome}</h1>
+    </div>
+    <div class="meta">
+      Matrícula: ${matricula}<br/>Nível: ${nivel}<br/>Turno: ${turno}<br/>Período: ${mes}
+    </div>
+  </div>`;
+}
+
+function printFooter(){
+  return `<div class="print-footer">Perform Avaliation · Gerado em ${now()} · Documento Confidencial</div>`;
+}
+
+function printSigs(a,b,c){
+  return `<div class="print-sigs">
+    ${[a,b,c].map(([n,r])=>`<div class="print-sig"><div class="print-sig-line"></div><b>${n}</b>${r}</div>`).join("")}
+  </div>`;
+}
+
+function printScoreBox(s){
+  const f=faixa(s);
+  const c=s>=8?"#1D9E75":s>=5?"#EF9F27":"#E24B4A";
+  return `<div class="print-score-box">
+    <div class="print-score-big" style="background:${f.bg}">
+      <div class="print-score-num" style="color:${c}">${fmtScore(s)}</div>
+      <div class="print-score-label" style="color:${c}">${f.l.toUpperCase()}</div>
+    </div>`;
+}
+
+function imprimirIndividual(cid){
+  const c=DB.colaboradores.find(x=>x.id===cid);
+  const s=score(cid);const f=faixa(s);
+  const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES&&i.status==="Validada");
+  const sup=gt(c.supId);const lid=gt(c.lidId);
+  const descTotal=v.reduce((a,i)=>a+DESCONTO[i.gravidade],0);
+  const rows=[
+    `<tr><td>Pontuação inicial</td><td>—</td><td><strong style="color:#1D9E75">10,0</strong></td></tr>`,
+    ...v.map(i=>`<tr><td style="color:${GC[i.gravidade]}">${i.gravidade}: ${i.descricao.slice(0,50)}</td>
+      <td style="color:${GC[i.gravidade]}">${i.gravidade}</td>
+      <td style="color:#A32D2D;font-weight:600">-${DESCONTO[i.gravidade].toFixed(1)}</td></tr>`),
+    `<tr style="background:#E1F5EE"><td><strong>PONTUAÇÃO FINAL</strong></td><td></td>
+      <td><strong style="color:${f.c};font-size:14px">${fmtScore(s)}</strong></td></tr>`,
+  ].join("");
+  const barW=Math.round(s*100/10);
+  doImprimir(`
+    ${printHeader(c.nome,c.nivel,c.turno,MES,c.id)}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div style="background:#E1F5EE;border-radius:8px;padding:12px 16px;font-size:11px;line-height:2">
+        <strong>Supervisor:</strong> ${sup.nome||"—"}<br/>
+        <strong>Líder:</strong> ${lid.nome||"—"}<br/>
+        <strong>Data:</strong> ${now()}
+      </div>
+      <div style="background:#F6F5F1;border-radius:8px;padding:12px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-size:36px;font-weight:700;color:${f.c};line-height:1">${fmtScore(s)}</div>
+        <div style="font-size:12px;font-weight:600;color:${f.c}">${f.l.toUpperCase()}</div>
+      </div>
+    </div>
+    <div class="print-bar-wrap"><div class="print-bar-fill" style="width:${barW}%;background:${f.c}"></div></div>
+    <div class="print-section-title">Composição da Pontuação</div>
+    <table class="print-table"><thead><tr><th>Ocorrência</th><th>Gravidade</th><th>Desconto</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    ${printSigs([sup.nome||"Supervisor","Supervisor de Turno"],[lid.nome||"Líder","Líder de Turno"],[c.nome,"Colaborador"])}
+    ${printFooter()}
+  `);
+}
+
+function imprimirFeedback(cid){
+  const c=DB.colaboradores.find(x=>x.id===cid);
+  const s=score(cid);const f=faixa(s);
+  const sup=gt(c.supId);
+  const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES&&i.status==="Validada");
+  const incRows=v.map(i=>`<tr><td style="color:${GC[i.gravidade]}">${i.descricao}</td>
+    <td style="color:${GC[i.gravidade]}">${i.gravidade}</td>
+    <td style="color:#A32D2D;font-weight:600">-${DESCONTO[i.gravidade].toFixed(1)}</td></tr>`).join("");
+  const planRows=["","","",""].map(()=>`<tr><td></td><td></td><td></td></tr>`).join("");
+  doImprimir(`
+    ${printHeader(c.nome,c.nivel,c.turno,MES,c.id)}
+    <div class="print-alrt">⚠ Pontuação abaixo de 5,0 — Feedback individual obrigatório pelo supervisor</div>
+    <div style="text-align:center;font-size:22px;font-weight:700;color:#A32D2D;margin-bottom:12px">
+      Pontuação Final: ${fmtScore(s)} / 10,0 — RUIM
+    </div>
+    <div class="print-section-title">Inconformidades do Período</div>
+    <table class="print-table"><thead><tr><th>Descrição</th><th>Gravidade</th><th>Desconto</th></tr></thead>
+      <tbody>${incRows||`<tr><td colspan="3" style="text-align:center">—</td></tr>`}</tbody></table>
+    <div class="print-section-title">Plano de Ação — preencher na reunião com o colaborador</div>
+    <table class="print-plan"><thead><tr><th style="width:35%">Ponto de Melhoria</th><th style="width:45%">Ação Proposta</th><th style="width:20%">Prazo</th></tr></thead>
+      <tbody>${planRows}</tbody></table>
+    <div style="margin-top:14px;font-size:10px;color:#6B6963;text-align:center">
+      Declaro que recebi o feedback e estou ciente das ações necessárias para minha evolução.
+    </div>
+    ${printSigs([sup.nome||"Supervisor","Supervisor"],[c.nome,"Colaborador"],["","Data / Local"])}
+    ${printFooter()}
+  `);
+}
+
+function imprimirRelatorioTurno(turno){
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)})).sort((a,b)=>b.s-a.s);
+  const med=scores.length?scores.reduce((a,x)=>a+x.s,0)/scores.length:0;
+  const sup=DB.gestao.find(g=>g.turno===turno&&g.cargo==="supervisor");
+  const f=faixa(med);const barW=Math.round(med*10);
+  const rows=scores.map(({c,s},i)=>{
+    const fi=faixa(s);const qi=DB.inconformidades.filter(inc=>inc.colaboradorId===c.id&&inc.mes===MES&&inc.status==="Validada").length;
+    return `<tr><td>${i+1}</td><td><strong>${c.nome}</strong></td><td>${c.nivel}</td>
+      <td style="color:${fi.c};font-weight:700">${fmtScore(s)}</td>
+      <td style="color:${fi.c}">${fi.l}</td><td>${qi||"—"}</td></tr>`;
+  }).join("");
+  const bom=scores.filter(x=>x.s>=8).length,medQ=scores.filter(x=>x.s>=5&&x.s<8).length,ruim=scores.filter(x=>x.s<5).length;
+  doImprimir(`
+    <div class="print-header">
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+        <h1>Relatório — Turno ${turno}</h1></div>
+      <div class="meta">${MES}<br/>Supervisor: ${sup?.nome||"—"}<br/>Data: ${now()}</div>
+    </div>
+    ${med>=8?`<div style="background:#E1F5EE;border:1px solid #5DCAA5;border-radius:6px;padding:8px 12px;text-align:center;color:#0F6E56;font-weight:600;margin-bottom:12px">🎉 Turno elegível para confraternização — Média ${fmtScore(med)}</div>`:""}
+    <div style="display:grid;grid-template-columns:120px 1fr;gap:12px;margin-bottom:14px;align-items:center">
+      <div style="background:${f.bg};border-radius:8px;padding:12px;text-align:center">
+        <div style="font-size:32px;font-weight:700;color:${f.c}">${fmtScore(med)}</div>
+        <div style="font-size:11px;color:${f.c};font-weight:600">MÉDIA ${f.l.toUpperCase()}</div>
+      </div>
+      <div>
+        <div class="print-bar-wrap"><div class="print-bar-fill" style="width:${barW}%;background:${f.c}"></div></div>
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:11px">
+          <span style="color:#1D9E75">✓ Bom: ${bom}</span>
+          <span style="color:#854F0B">◉ Médio: ${medQ}</span>
+          <span style="color:#A32D2D">✗ Ruim: ${ruim}</span>
+        </div>
+      </div>
+    </div>
+    <div class="print-section-title">Resultado Individual</div>
+    <table class="print-table">
+      <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Faixa</th><th>Inc.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${printFooter()}
+  `);
+}
+
+function imprimirLista(faixaTipo,turno){
+  const cols=DB.colaboradores.filter(c=>c.turno===turno&&c.status==="Ativo");
+  const scores=cols.map(c=>({c,s:score(c.id)}))
+    .filter(x=>faixaTipo==="ruim"?x.s<5:faixaTipo==="medio"?x.s>=5&&x.s<8:x.s>=8)
+    .sort((a,b)=>a.s-b.s);
+  const cor=faixaTipo==="ruim"?"#A32D2D":faixaTipo==="medio"?"#854F0B":"#1D9E75";
+  const titulo=faixaTipo==="ruim"?"Pontuação Insatisfatória (0–4)":faixaTipo==="medio"?"Pontuação Média (5–7)":"Pontuação Bom (8–10)";
+  const sup=DB.gestao.find(g=>g.turno===turno&&g.cargo==="supervisor");
+  const rows=scores.map(({c,s},i)=>{
+    const qi=DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validada").length;
+    return `<tr><td><strong>${c.nome}</strong></td><td>${c.id}</td><td>${c.nivel}</td>
+      <td style="color:${cor};font-weight:700">${fmtScore(s)}</td><td>${qi}</td>
+      <td>[ ] Sim  [ ] Não</td></tr>`;
+  }).join("");
+  doImprimir(`
+    <div class="print-header">
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+        <h1>Lista para Gestor — ${titulo}</h1></div>
+      <div class="meta">Turno: ${turno}<br/>Período: ${MES}<br/>Total: ${scores.length}</div>
+    </div>
+    ${faixaTipo==="ruim"&&scores.length?`<div class="print-alrt">Feedback individual obrigatório para todos os colaboradores desta lista.</div>`:""}
+    <div class="print-section-title">Colaboradores — ${turno}</div>
+    <table class="print-table">
+      <thead><tr><th>Colaborador</th><th>Matrícula</th><th>Nível</th><th>Nota</th><th>Inc.</th><th>Feedback Realizado</th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="6" style="text-align:center">Nenhum colaborador nesta faixa.</td></tr>`}</tbody>
+    </table>
+    <div style="margin-top:24px;text-align:center;font-size:10px">
+      _________________________ <br/><strong>${sup?.nome||"Supervisor"}</strong><br/>Supervisor de Turno
+    </div>
+    ${printFooter()}
+  `);
+}
+
+function imprimirRanking(){
+  const scores=DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>({c,s:score(c.id)}))
+    .sort((a,b)=>b.s-a.s);
+  const medals=["🥇","🥈","🥉"];
+  const rows=scores.map(({c,s},i)=>{
+    const f=faixa(s);const qi=DB.inconformidades.filter(inc=>inc.colaboradorId===c.id&&inc.mes===MES&&inc.status==="Validada").length;
+    return `<tr><td>${medals[i]||i+1}</td><td><strong>${c.nome}</strong></td>
+      <td>${c.nivel}</td><td>${c.turno}</td>
+      <td style="color:${f.c};font-weight:700;font-size:13px">${fmtScore(s)}</td>
+      <td style="color:${f.c}">${f.l}</td>
+      <td style="color:${qi>0?"#A32D2D":"#1D9E75"}">${qi}</td></tr>`;
+  }).join("");
+  doImprimir(`
+    <div class="print-header">
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+        <h1>Ranking Geral de Performance</h1></div>
+      <div class="meta">${MES}<br/>Data: ${now()}<br/>Total: ${scores.length} colaboradores</div>
+    </div>
+    <div class="print-section-title">Ranking Completo</div>
+    <table class="print-table">
+      <thead><tr><th>#</th><th>Colaborador</th><th>Nível</th><th>Turno</th><th>Pontuação</th><th>Faixa</th><th>Inc.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${printFooter()}
+  `);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+document.getElementById("l-email").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
+document.getElementById("l-senha").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
+</script>
+</body>
+</html>
