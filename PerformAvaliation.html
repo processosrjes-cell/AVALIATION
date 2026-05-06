@@ -262,6 +262,11 @@ const MES = "Maio 2025";
 const DESCONTO = {Crítica:3,Grave:2,Média:1,Leve:.5};
 const GC = {Crítica:"#A32D2D",Grave:"#854F0B",Média:"#185FA5",Leve:"#3B6D11"};
 const GB = {Crítica:"#FCEBEB",Grave:"#FAEEDA",Média:"#E6F1FB",Leve:"#EAF3DE"};
+// ── Destaques positivos ────────────────────────────────────────────────────
+const BONUS = {Bom:.5, "Muito Bom":1, Excelente:2, Extraordinário:3};
+const DEST_NIVEIS = ["Bom","Muito Bom","Excelente","Extraordinário"];
+const DC = {Bom:"#1D9E75","Muito Bom":"#0F6E56",Excelente:"#185FA5",Extraordinário:"#533AB7"};
+const DB_COLOR = {Bom:"#E1F5EE","Muito Bom":"#B8EDD9",Excelente:"#E6F1FB",Extraordinário:"#EEEDFE"};
 
 let DB = {
   colaboradores:[
@@ -302,6 +307,10 @@ let DB = {
     {id:"INC006",colaboradorId:"009",mes:MES,data:"16/05/2025",descricao:"Saída antecipada sem autorização",gravidade:"Média",lidId:"G003",status:"Pendente",supId:"",obsL:"",obsS:""},
   ],
   historico:{Manhã:[[2,8.2],[3,7.6],[4,8.0]],Tarde:[[2,9.0],[3,8.8],[4,9.2]],Noite:[[2,7.5],[3,8.0],[4,7.8]]},
+  destaques:[
+    {id:"DES001",colaboradorId:"001",mes:MES,data:"07/05/2025",descricao:"Propôs melhoria no fluxo de triagem que reduziu o tempo em 20%",nivel:"Extraordinário",lidId:"G003",status:"Validado",supId:"G001",obsL:"Ideia implementada imediatamente",obsS:"Aprovado"},
+    {id:"DES002",colaboradorId:"006",mes:MES,data:"09/05/2025",descricao:"Substituiu colega ausente voluntariamente sem afetar qualidade",nivel:"Excelente",lidId:"G003",status:"Pendente",supId:"",obsL:"",obsS:""},
+  ],
 };
 
 // Login dinâmico — busca em DB.gestao por email e senha
@@ -317,15 +326,15 @@ function findUser(email, senha) {
 
 const PERFIS={
   adm:{label:"Administrador",cor:"#533AB7",bgCor:"#EEEDFE",
-    pages:["adm_painel","adm_colaboradores","adm_criterios","adm_gestao","adm_exportar"]},
+    pages:["adm_painel","adm_colaboradores","adm_criterios","adm_gestao","adm_exportar","adm_destaque"]},
   rgm:{label:"RGM",cor:"#185FA5",bgCor:"#E6F1FB",
     pages:["rgm_visao","rgm_perf","rgm_ranking"]},
   coordenador:{label:"Coordenador",cor:"#854F0B",bgCor:"#FAEEDA",
-    pages:["coord_painel","coord_aval","coord_inc","coord_turnos","coord_prom"]},
+    pages:["coord_painel","coord_aval","coord_inc","coord_turnos","coord_prom","coord_destaque"]},
   supervisor:{label:"Supervisor",cor:"#0F6E56",bgCor:"#E1F5EE",
-    pages:["sup_painel","sup_validar","sup_fechar","sup_listas"]},
+    pages:["sup_painel","sup_validar","sup_fechar","sup_listas","sup_destaque"]},
   lider:{label:"Líder",cor:"#3B6D11",bgCor:"#EAF3DE",
-    pages:["lid_turno","lid_registrar"]},
+    pages:["lid_turno","lid_registrar","lid_destaque"]},
 };
 
 const PAGE_META={
@@ -348,6 +357,10 @@ const PAGE_META={
   sup_listas:{label:"Listas e Impressão",icon:"🖨"},
   lid_turno:{label:"Meu Turno",icon:"👥"},
   lid_registrar:{label:"Registrar Inconform.",icon:"⚠"},
+  lid_destaque:{label:"Registrar Destaque",icon:"⭐"},
+  sup_destaque:{label:"Validar Destaques",icon:"⭐"},
+  coord_destaque:{label:"Destaques",icon:"⭐"},
+  adm_destaque:{label:"Destaques",icon:"⭐"},
 };
 
 // Estado global
@@ -358,7 +371,10 @@ let SESSION=null, PAGE=null;
 // ═══════════════════════════════════════════════════════════════════════════
 const score=(cid,mes=MES)=>{
   const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===mes&&i.status==="Validada");
-  return Math.max(0,10-v.reduce((a,i)=>a+(DESCONTO[i.gravidade]||0),0));
+  const d=DB.destaques.filter(i=>i.colaboradorId===cid&&i.mes===mes&&i.status==="Validado");
+  const desc=v.reduce((a,i)=>a+(DESCONTO[i.gravidade]||0),0);
+  const bonus=d.reduce((a,i)=>a+(BONUS[i.nivel]||0),0);
+  return Math.min(10,Math.max(0,10-desc+bonus));
 };
 const faixa=s=>s>=8?{l:"Bom",c:"#1D9E75",bg:"#E1F5EE",bd:"#5DCAA5",cls:"chip-bom"}
               :s>=5?{l:"Médio",c:"#854F0B",bg:"#FAEEDA",bd:"#EF9F27",cls:"chip-medio"}
@@ -369,7 +385,10 @@ const mediaT=(turno)=>{
   if(!ids.length)return 0;
   return ids.reduce((a,id)=>a+score(id),0)/ids.length;
 };
-const pendentes=()=>DB.inconformidades.filter(i=>i.status==="Pendente");
+const pendentes=()=>[
+  ...DB.inconformidades.filter(i=>i.status==="Pendente"),
+  ...DB.destaques.filter(i=>i.status==="Pendente"),
+];
 const fmtScore=s=>s.toFixed(1);
 const gravChip=g=>`<span class="chip" style="color:${GC[g]};background:${GB[g]};border-color:${GC[g]}">${g}</span>`;
 const statusChip=s=>{
@@ -383,14 +402,19 @@ const barHtml=(s,w="100%")=>{
 };
 const scoreCompHtml=(cid)=>{
   const v=DB.inconformidades.filter(i=>i.colaboradorId===cid&&i.mes===MES&&i.status==="Validada");
+  const d=DB.destaques.filter(i=>i.colaboradorId===cid&&i.mes===MES&&i.status==="Validado");
   const s=score(cid);
-  let rows=v.map(i=>`<div class="scorecomp-row">
-    <span style="color:${GC[i.gravidade]}">— ${i.gravidade}: ${i.descricao.slice(0,40)}${i.descricao.length>40?"…":""}</span>
-    <span style="color:${GC[i.gravidade]};font-weight:600">-${DESCONTO[i.gravidade].toFixed(1)}</span>
+  const incRows=v.map(i=>`<div class="scorecomp-row">
+    <span style="color:${GC[i.gravidade]}">— ${i.gravidade}: ${i.descricao.slice(0,38)}${i.descricao.length>38?"…":""}</span>
+    <span style="color:#A32D2D;font-weight:600">-${DESCONTO[i.gravidade].toFixed(1)}</span>
+  </div>`).join("");
+  const destRows=d.map(i=>`<div class="scorecomp-row">
+    <span style="color:${DC[i.nivel]}">+ ${i.nivel}: ${i.descricao.slice(0,38)}${i.descricao.length>38?"…":""}</span>
+    <span style="color:#1D9E75;font-weight:600">+${BONUS[i.nivel].toFixed(1)}</span>
   </div>`).join("");
   return `<div class="scorecomp">
     <div class="scorecomp-row"><span style="color:#6B6963">Pontuação inicial</span><span style="font-weight:600">10,0</span></div>
-    ${rows}
+    ${incRows}${destRows}
     <div class="div"></div>
     <div class="scorecomp-row" style="font-size:13px;font-weight:600">
       <span>Pontuação Final</span><span style="color:${faixa(s).c}">${fmtScore(s)}</span>
@@ -398,7 +422,7 @@ const scoreCompHtml=(cid)=>{
   </div>`;
 };
 const now=()=>new Date().toLocaleDateString("pt-BR");
-const uid=()=>"INC"+Date.now().toString().slice(-6);
+const uid=(pfx="INC")=>pfx+Date.now().toString().slice(-6);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODAL
@@ -477,13 +501,14 @@ function renderPage(){
   const c=document.getElementById("content");
   const pf=SESSION.perfil;
   const renders={
-    lid_turno:pageLiderTurno,lid_registrar:pageLiderRegistrar,
-    sup_painel:pageSupPainel,sup_validar:pageSupValidar,sup_fechar:pageSupFechar,sup_listas:pageSupListas,
+    lid_turno:pageLiderTurno,lid_registrar:pageLiderRegistrar,lid_destaque:pageLiderDestaque,
+    sup_painel:pageSupPainel,sup_validar:pageSupValidar,sup_fechar:pageSupFechar,
+    sup_listas:pageSupListas,sup_destaque:pageSupDestaque,
     coord_painel:pageCoordPainel,coord_aval:pageCoordAval,coord_inc:pageCoordInc,
-    coord_turnos:pageCoordTurnos,coord_prom:pageCoordProm,
+    coord_turnos:pageCoordTurnos,coord_prom:pageCoordProm,coord_destaque:pageCoordDestaque,
     rgm_visao:pageRGMVisao,rgm_perf:pageRGMPerf,rgm_ranking:pageRGMRanking,
     adm_painel:pageADMPainel,adm_colaboradores:pageADMColabs,adm_criterios:pageADMCriterios,
-    adm_gestao:pageADMGestao,adm_exportar:pageADMExportar,
+    adm_gestao:pageADMGestao,adm_exportar:pageADMExportar,adm_destaque:pageADMDestaque,
   };
   c.innerHTML=(renders[PAGE]||pageADMPainel)();
 }
@@ -501,7 +526,8 @@ function pageLiderTurno(){
       <td><strong>${c.nome}</strong></td>
       <td><span class="chip chip-gray">${c.nivel}</span></td>
       <td><strong style="color:${f.c};font-size:16px">${fmtScore(s)}</strong>${barHtml(s,"120px")}</td>
-      <td style="color:#A32D2D;font-weight:600">${s<10?"-"+(10-s).toFixed(1):"—"}</td>
+      <td style="color:#A32D2D;font-weight:600">${DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validada").reduce((a,i)=>a+DESCONTO[i.gravidade],0)>0?"-"+DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validada").reduce((a,i)=>a+DESCONTO[i.gravidade],0).toFixed(1):"—"}</td>
+      <td style="color:#1D9E75;font-weight:600">${DB.destaques.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validado").reduce((a,i)=>a+BONUS[i.nivel],0)>0?"+"+DB.destaques.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validado").reduce((a,i)=>a+BONUS[i.nivel],0).toFixed(1):"—"}</td>
       <td>${faixaChip(s)}</td>
       <td style="font-size:12px">${mi} regist.</td>
       <td><button class="btn btn-sm" onclick="modalDetColabLider('${c.id}')">Ver</button></td>
@@ -516,7 +542,7 @@ function pageLiderTurno(){
       <span style="font-size:12px;color:#6B6963">${cols.length} colaboradores</span>
     </div>
     <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Desconto</th><th>Faixa</th><th>Minhas Inc.</th><th></th></tr></thead>
+      <thead><tr><th>Colaborador</th><th>Nível</th><th>Pontuação</th><th>Desconto</th><th>Bônus</th><th>Faixa</th><th>Minhas Inc.</th><th></th></tr></thead>
       <tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:#A09D97;padding:2rem">Sem colaboradores.</td></tr>`}</tbody>
     </table></div>
   </div>`;
@@ -626,13 +652,15 @@ function pageSupPainel(){
   const rows=scores.map(({c,s})=>{
     const f=faixa(s);
     const pC=DB.inconformidades.filter(i=>i.colaboradorId===c.id&&i.status==="Pendente"&&i.mes===MES).length;
+    const bV=DB.destaques.filter(i=>i.colaboradorId===c.id&&i.mes===MES&&i.status==="Validado").reduce((a,i)=>a+BONUS[i.nivel],0);
     return `<tr>
       <td><strong>${c.nome}</strong></td>
       <td><span class="chip chip-gray">${c.nivel}</span></td>
       <td>${gt(c.lidId).nome||"—"}</td>
       <td><strong style="color:${f.c};font-size:16px">${fmtScore(s)}</strong>${barHtml(s,"100px")}</td>
       <td>${faixaChip(s)}</td>
-      <td>${pC>0?`<span class="chip chip-medio">${pC} pendente(s)</span>`:`<span style="font-size:12px;color:#1D9E75">Em dia</span>`}</td>
+      <td style="color:#1D9E75;font-weight:600">${bV>0?"+"+bV.toFixed(1):"—"}</td>
+      <td>${pC>0?`<span class="chip chip-medio">${pC} pend.</span>`:`<span style="font-size:12px;color:#1D9E75">Em dia</span>`}</td>
     </tr>`;
   }).join("");
   const confrat=med>=8?`<div class="confrat"><span style="font-size:24px">🎉</span>
@@ -1687,6 +1715,304 @@ function imprimirRanking(){
     </table>
     ${printFooter()}
   `);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TELAS DE DESTAQUES
+// Bônus: Bom +0,5 | Muito Bom +1,0 | Excelente +2,0 | Extraordinário +3,0
+// Fluxo: Líder registra (Pendente) → Supervisor valida → bônus aplicado
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Chip de nível de destaque
+function destChip(nivel){
+  return `<span class="chip" style="color:${DC[nivel]};background:${DB_COLOR[nivel]};border-color:${DC[nivel]}">${nivel}</span>`;
+}
+
+// ── LÍDER: Registrar Destaque ─────────────────────────────────────────────
+function pageLiderDestaque(){
+  const g=gt(SESSION.gid);
+  // Líder vê APENAS colaboradores do seu turno vinculados a ele
+  const cols=DB.colaboradores.filter(c=>c.lidId===SESSION.gid&&c.status==="Ativo");
+  const meus=DB.destaques.filter(i=>i.lidId===SESSION.gid&&i.mes===MES);
+  const rows=meus.map(d=>{
+    const c=DB.colaboradores.find(x=>x.id===d.colaboradorId);
+    return `<tr>
+      <td>${d.data}</td>
+      <td>${c?.nome||"—"}</td>
+      <td>${destChip(d.nivel)}</td>
+      <td style="color:#1D9E75;font-weight:600">+${BONUS[d.nivel].toFixed(1)}</td>
+      <td style="font-size:12px;max-width:200px">${d.descricao}</td>
+      <td>${d.status==="Validado"
+          ?`<span style="font-size:12px;color:#1D9E75;font-weight:600">Validado</span>`
+          :d.status==="Recusado"
+          ?`<span style="font-size:12px;color:#A32D2D;font-weight:600">Recusado</span>`
+          :`<span style="font-size:12px;color:#854F0B">Pendente</span>`}
+      </td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Registrar Destaque</div>
+    <div class="ph-sub">Reconheça iniciativas e atividades acima do esperado do turno ${g.turno}</div></div>
+  <div class="alrt alrt-ok">⭐ Destaques validados pelo supervisor somam pontos à pontuação do colaborador:
+    <strong>Bom +0,5 · Muito Bom +1,0 · Excelente +2,0 · Extraordinário +3,0</strong></div>
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Registrados por mim</div><div class="met-val">${meus.length}</div></div>
+    <div class="met"><div class="met-label">Aguardando validação</div><div class="met-val" style="color:#854F0B">${meus.filter(d=>d.status==="Pendente").length}</div></div>
+    <div class="met"><div class="met-label">Validados</div><div class="met-val" style="color:#1D9E75">${meus.filter(d=>d.status==="Validado").length}</div></div>
+    <div class="met"><div class="met-label">Recusados</div><div class="met-val" style="color:#A32D2D">${meus.filter(d=>d.status==="Recusado").length}</div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="card-title" style="margin:0">Destaques registrados — ${MES}</div>
+      <button class="btn btn-pr btn-sm" onclick="modalNovaDestaque()">+ Novo Destaque</button>
+    </div>
+    <div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th>Data</th><th>Colaborador</th><th>Nível</th><th>Bônus</th><th>Descrição</th><th>Status</th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:#A09D97;padding:2rem">Nenhum destaque registrado.</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function modalNovaDestaque(){
+  const cols=DB.colaboradores.filter(c=>c.lidId===SESSION.gid&&c.status==="Ativo");
+  openModal("Registrar Destaque",`
+    <div class="alrt alrt-ok">O bônus é aplicado na pontuação <strong>somente após validação do supervisor</strong>.</div>
+    <div class="fg"><label>Colaborador</label>
+      <select id="dest-col">
+        <option value="">Selecione...</option>
+        ${cols.map(c=>`<option value="${c.id}">${c.nome} (${c.nivel})</option>`).join("")}
+      </select>
+    </div>
+    <div class="fg"><label>Nível do Destaque</label>
+      <select id="dest-nivel" onchange="atualizarInfoDestaque()">
+        ${DEST_NIVEIS.map(n=>`<option value="${n}">${n} — bônus +${BONUS[n].toFixed(1)} pts</option>`).join("")}
+      </select>
+    </div>
+    <div id="dest-info" class="alrt alrt-ok" style="margin-top:0">
+      <strong>Bom (+0,5 pts)</strong> — Desempenho acima do esperado em atividade rotineira.
+    </div>
+    <div class="fg"><label>Descrição da ação / ideia</label>
+      <textarea id="dest-desc" placeholder="Descreva o que o colaborador fez de diferencial..."></textarea>
+    </div>
+    <div class="fg"><label>Observação adicional (opcional)</label>
+      <textarea id="dest-obs" placeholder="Contexto, impacto, evidências..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="salvarDestaque()">Registrar Destaque</button>
+    </div>
+  `);
+}
+
+const DEST_INFO={
+  Bom:"<strong>Bom (+0,5 pts)</strong> — Desempenho acima do esperado em atividade rotineira.",
+  "Muito Bom":"<strong>Muito Bom (+1,0 pt)</strong> — Contribuição relevante para o turno ou equipe.",
+  Excelente:"<strong>Excelente (+2,0 pts)</strong> — Iniciativa ou solução com impacto significativo.",
+  Extraordinário:"<strong>Extraordinário (+3,0 pts)</strong> — Ação ou ideia de alto impacto, referência para toda a equipe.",
+};
+
+function atualizarInfoDestaque(){
+  const nv=document.getElementById("dest-nivel")?.value;
+  const info=document.getElementById("dest-info");
+  if(info&&nv)info.innerHTML=DEST_INFO[nv]||"";
+}
+
+function salvarDestaque(){
+  const cid=document.getElementById("dest-col").value;
+  const nivel=document.getElementById("dest-nivel").value;
+  const desc=document.getElementById("dest-desc").value.trim();
+  const obs=document.getElementById("dest-obs")?.value||"";
+  if(!cid||!desc){alert("Preencha colaborador e descrição.");return}
+  DB.destaques.push({
+    id:uid("DES"),colaboradorId:cid,mes:MES,
+    data:now(),descricao:desc,nivel,
+    lidId:SESSION.gid,status:"Pendente",supId:"",obsL:obs,obsS:"",
+  });
+  closeModal();renderPage();buildLayout();
+}
+
+// ── SUPERVISOR: Validar Destaques ─────────────────────────────────────────
+function pageSupDestaque(){
+  const g=gt(SESSION.gid);const turno=g.turno;
+  const dests=DB.destaques.filter(d=>{
+    const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+    return col?.turno===turno&&d.mes===MES;
+  });
+  const pendDest=dests.filter(d=>d.status==="Pendente").length;
+  const rows=dests.slice().reverse().map(d=>{
+    const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+    const acao=d.status==="Pendente"
+      ?`<button class="btn btn-pr btn-sm" onclick="modalValidarDestaque('${d.id}')">Validar</button>`
+      :`<span style="font-size:12px;color:#A09D97">—</span>`;
+    return `<tr>
+      <td>${d.data}</td>
+      <td>${col?.nome||"—"}</td>
+      <td>${destChip(d.nivel)}</td>
+      <td style="color:#1D9E75;font-weight:600">+${BONUS[d.nivel].toFixed(1)}</td>
+      <td style="font-size:12px;max-width:180px">${d.descricao}</td>
+      <td>${gt(d.lidId).nome||"—"}</td>
+      <td>${d.status==="Validado"
+          ?`<span style="font-size:12px;color:#1D9E75;font-weight:600">Validado</span>`
+          :d.status==="Recusado"
+          ?`<span style="font-size:12px;color:#A32D2D;font-weight:600">Recusado</span>`
+          :`<span style="font-size:12px;color:#854F0B">Pendente</span>`}
+      </td>
+      <td>${acao}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="ph"><div class="ph-title">Validar Destaques — ${turno}</div>
+    <div class="ph-sub">Validar aplica o bônus na pontuação do colaborador.</div></div>
+  ${pendDest?`<div class="alrt alrt-wn">⭐ ${pendDest} destaque(s) aguardando sua validação.</div>`:""}
+  <div class="grid3" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:#854F0B">${pendDest}</div></div>
+    <div class="met"><div class="met-label">Validados</div><div class="met-val" style="color:#1D9E75">${dests.filter(d=>d.status==="Validado").length}</div></div>
+    <div class="met"><div class="met-label">Recusados</div><div class="met-val" style="color:#A32D2D">${dests.filter(d=>d.status==="Recusado").length}</div></div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Nível</th><th>Bônus</th><th>Descrição</th><th>Líder</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" style="text-align:center;color:#A09D97;padding:2rem">Sem destaques registrados.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+function modalValidarDestaque(destId){
+  const d=DB.destaques.find(x=>x.id===destId);
+  const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+  openModal("Validar Destaque",`
+    <div class="scorecomp" style="margin-bottom:1rem">
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        ${destChip(d.nivel)}
+        <span class="chip" style="color:#1D9E75;background:#E1F5EE;border-color:#5DCAA5">+${BONUS[d.nivel].toFixed(1)} pts</span>
+      </div>
+      <div style="font-weight:600">${d.descricao}</div>
+      ${d.obsL?`<div style="color:#6B6963;margin-top:4px">Obs. Líder: ${d.obsL}</div>`:""}
+      <div style="color:#A09D97;margin-top:4px">${d.data} — ${col?.nome||""}</div>
+    </div>
+    <div class="fg"><label>Decisão</label>
+      <select id="dval-dec" onchange="toggleDestInfo()">
+        <option value="validar">✅ Validar — aplicar bônus de +${BONUS[d.nivel].toFixed(1)} pts</option>
+        <option value="recusar">❌ Recusar — não aplicar bônus</option>
+      </select>
+    </div>
+    <div id="dval-info" class="alrt alrt-ok">✅ O bônus de +${BONUS[d.nivel].toFixed(1)} pts será aplicado na pontuação do colaborador.</div>
+    <div class="fg"><label>Observação (opcional)</label>
+      <textarea id="dval-obs" placeholder="Justificativa da decisão..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-pr" onclick="confirmarValidacaoDestaque('${destId}')">Confirmar</button>
+    </div>
+  `);
+}
+
+function toggleDestInfo(){
+  const dec=document.getElementById("dval-dec")?.value;
+  const info=document.getElementById("dval-info");
+  const d=DB.destaques.find(x=>x.id===window._destIdAtual);
+  if(!info)return;
+  if(dec==="validar"){
+    info.className="alrt alrt-ok";
+    info.textContent="✅ O bônus será aplicado e somado à pontuação do colaborador.";
+  } else {
+    info.className="alrt alrt-dn";
+    info.textContent="❌ O destaque será recusado. Nenhum bônus será aplicado.";
+  }
+}
+
+function confirmarValidacaoDestaque(destId){
+  const dec=document.getElementById("dval-dec").value;
+  const obs=document.getElementById("dval-obs").value;
+  const d=DB.destaques.find(i=>i.id===destId);
+  if(!d)return;
+  d.status=dec==="validar"?"Validado":"Recusado";
+  d.supId=SESSION.gid;d.obsS=obs;
+  closeModal();renderPage();buildLayout();
+}
+
+// ── COORDENADOR: Ver todos os destaques ──────────────────────────────────
+function pageCoordDestaque(){
+  const [turno,setT]=[window._coordDestTurno||"Todos",t=>{window._coordDestTurno=t;renderPage()}];
+  const turnos=["Todos","Manhã","Tarde","Noite"];
+  const dests=DB.destaques.filter(d=>{
+    if(turno==="Todos")return d.mes===MES;
+    const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+    return col?.turno===turno&&d.mes===MES;
+  });
+  const tabs=turnos.map(t=>
+    `<button class="tab${t===turno?" active":""}" onclick="window._coordDestTurno='${t}';renderPage()">${t}</button>`
+  ).join("");
+  const rows=dests.slice().reverse().map(d=>{
+    const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+    return `<tr>
+      <td>${d.data}</td>
+      <td><strong>${col?.nome||"—"}</strong></td>
+      <td><span class="chip chip-gray">${col?.turno||"—"}</span></td>
+      <td>${destChip(d.nivel)}</td>
+      <td style="color:#1D9E75;font-weight:600">+${BONUS[d.nivel].toFixed(1)}</td>
+      <td style="font-size:12px">${d.descricao}</td>
+      <td>${gt(d.lidId).nome||"—"}</td>
+      <td>${d.status==="Validado"
+          ?`<span style="font-size:12px;color:#1D9E75;font-weight:600">Validado</span>`
+          :d.status==="Recusado"
+          ?`<span style="font-size:12px;color:#A32D2D;font-weight:600">Recusado</span>`
+          :`<span style="font-size:12px;color:#854F0B">Pendente</span>`}
+      </td>
+    </tr>`;
+  }).join("");
+  const total=dests.reduce((a,d)=>d.status==="Validado"?a+BONUS[d.nivel]:a,0);
+  return `<div class="ph"><div class="ph-title">Destaques — Reconhecimentos Positivos</div>
+    <div class="ph-sub">Bônus validados somam na pontuação individual</div></div>
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Total registrados</div><div class="met-val">${dests.length}</div></div>
+    <div class="met"><div class="met-label">Validados</div><div class="met-val" style="color:#1D9E75">${dests.filter(d=>d.status==="Validado").length}</div></div>
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:#854F0B">${dests.filter(d=>d.status==="Pendente").length}</div></div>
+    <div class="met"><div class="met-label">Total bônus aplicados</div><div class="met-val" style="color:#1D9E75">+${total.toFixed(1)} pts</div></div>
+  </div>
+  <div class="tabs">${tabs}</div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Turno</th><th>Nível</th><th>Bônus</th><th>Descrição</th><th>Líder</th><th>Status</th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="8" style="text-align:center;color:#A09D97;padding:2rem">Nenhum destaque no período.</td></tr>`}</tbody>
+  </table></div></div>`;
+}
+
+// ── ADM: Ver todos os destaques ───────────────────────────────────────────
+function pageADMDestaque(){
+  // ADM pode validar qualquer destaque pendente
+  const dests=DB.destaques.filter(d=>d.mes===MES).slice().reverse();
+  const rows=dests.map(d=>{
+    const col=DB.colaboradores.find(c=>c.id===d.colaboradorId);
+    const acao=d.status==="Pendente"
+      ?`<button class="btn btn-pr btn-sm" onclick="modalValidarDestaque('${d.id}')">Validar</button>`
+      :`<span style="font-size:12px;color:#A09D97">—</span>`;
+    return `<tr>
+      <td>${d.data}</td>
+      <td><strong>${col?.nome||"—"}</strong></td>
+      <td><span class="chip chip-gray">${col?.turno||"—"}</span></td>
+      <td>${destChip(d.nivel)}</td>
+      <td style="color:#1D9E75;font-weight:600">+${BONUS[d.nivel].toFixed(1)}</td>
+      <td style="font-size:12px">${d.descricao}</td>
+      <td>${gt(d.lidId).nome||"—"}</td>
+      <td>${d.status==="Validado"
+          ?`<span style="font-size:12px;color:#1D9E75;font-weight:600">Validado</span>`
+          :d.status==="Recusado"
+          ?`<span style="font-size:12px;color:#A32D2D;font-weight:600">Recusado</span>`
+          :`<span style="font-size:12px;color:#854F0B">Pendente</span>`}
+      </td>
+      <td>${acao}</td>
+    </tr>`;
+  }).join("");
+  const total=DB.destaques.filter(d=>d.status==="Validado"&&d.mes===MES).reduce((a,d)=>a+BONUS[d.nivel],0);
+  return `<div class="ph"><div class="ph-title">Destaques — Todos os Turnos</div>
+    <div class="ph-sub">Reconhecimentos positivos registrados no período ${MES}</div></div>
+  <div class="grid4" style="margin-bottom:1rem">
+    <div class="met"><div class="met-label">Total no mês</div><div class="met-val">${dests.length}</div></div>
+    <div class="met"><div class="met-label">Validados</div><div class="met-val" style="color:#1D9E75">${dests.filter(d=>d.status==="Validado").length}</div></div>
+    <div class="met"><div class="met-label">Pendentes</div><div class="met-val" style="color:#854F0B">${dests.filter(d=>d.status==="Pendente").length}</div></div>
+    <div class="met"><div class="met-label">Total bônus aplicados</div><div class="met-val" style="color:#1D9E75">+${total.toFixed(1)} pts</div></div>
+  </div>
+  <div class="card"><div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Data</th><th>Colaborador</th><th>Turno</th><th>Nível</th><th>Bônus</th><th>Descrição</th><th>Líder</th><th>Status</th><th></th></tr></thead>
+    <tbody>${rows||`<tr><td colspan="9" style="text-align:center;color:#A09D97;padding:2rem">Nenhum destaque no período.</td></tr>`}</tbody>
+  </table></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
