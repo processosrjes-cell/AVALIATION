@@ -2030,161 +2030,179 @@ function pageADMDestaque(){
 // O Apps Script precisa ser publicado como Web App com acesso "Qualquer pessoa"
 // ─────────────────────────────────────────────────────────────────────────────
 
-const LS_KEY = "pe_db_v1";
-const LS_SHEET = "pe_sheet_id";
-const GAS_URL = "https://script.google.com/macros/s/AKfycby2eOfmVr6RFBT8WyIsDg5ZwsJ4CGPcXHJQSfNzosR3CtL-1PTwfw7b_3I-WDfQWiff2w/exec"; // URL do Apps Script — fixo
+// ── Persistência: localStorage + Google Apps Script ──────────────────────
+// A URL do Apps Script está fixada aqui. O usuário não precisa configurar nada.
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec";
+const LS_KEY  = "pe_db_v1";
 
-// ── localStorage helpers ──────────────────────────────────────────────────
-function lsSave(){ try{ localStorage.setItem("pe_db_v1",JSON.stringify(DB)); }catch(e){} }
+// ── localStorage ─────────────────────────────────────────────────────────
+function lsSave(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }catch(e){}
+}
 function lsLoad(){
   try{
-    const raw=localStorage.getItem("pe_db_v1");
-    if(raw){ const d=JSON.parse(raw); if(d && d.gestao && d.colaboradores) return d; }
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(d && Array.isArray(d.gestao) && d.gestao.length > 0) return d;
+    }
   }catch(e){}
   return null;
 }
-function lsSaveSheet(id){ try{ localStorage.setItem(LS_SHEET, id); }catch(e){} }
-function lsLoadSheet(){ try{ return localStorage.getItem(LS_SHEET)||""; }catch(e){ return ""; } }
 
-// ── Auto-save: salva no localStorage sempre que DB muda ───────────────────
-const _dbProxy = new Proxy({save:lsSave},{});
-function dbChanged(){ lsSave(); syncSheetIfConnected(); }
-
-// Sheet ID não exposto ao usuário — gerenciado internamente pelo Apps Script
-let SHEET_ID = "";
-
-// ── Carregar dados do Apps Script ────────────────────────────────────────
+// ── Carregar dados do Apps Script ─────────────────────────────────────────
+// O Apps Script retorna JSON com todas as abas.
+// Senhas são preservadas porque ficam na planilha.
 async function loadFromGAS(){
   try{
-    const res = await fetch(GAS_URL+"?action=load", {
-      signal: AbortSignal.timeout(10000)
-    });
+    const url = GAS_URL + "?action=load&t=" + Date.now();
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
     if(!res.ok) return null;
     const d = await res.json();
-    if(!d || !d.gestao || d.gestao.length===0) return null;
+    if(!d || !Array.isArray(d.gestao) || d.gestao.length === 0) return null;
+
+    // Garantir que todos os campos existem e email está em minúsculo
+    const gestao = d.gestao.map(g => ({
+      id:    String(g.id    ||""),
+      nome:  String(g.nome  ||""),
+      cargo: String(g.cargo ||"lider"),
+      turno: String(g.turno ||"Manhã"),
+      email: String(g.email ||"").toLowerCase().trim(),
+      senha: String(g.senha ||""),
+    }));
+
+    // Se planilha não tiver o ADM padrão, garante que ele existe
+    const temAdm = gestao.some(g => g.email === "processosrjes@gmail.com");
+    if(!temAdm){
+      gestao.push({id:"G008",nome:"Administrador",cargo:"adm",turno:"Todos",
+        email:"processosrjes@gmail.com",senha:"admin@2025"});
+    }
+
     return {
-      gestao: d.gestao.map(g=>{
-        const o={...g};
-        o.email=(o.email||"").toLowerCase();
-        return o;
-      }),
-      colaboradores: d.colaboradores||[],
-      inconformidades: d.inconformidades||[],
-      destaques: d.destaques||[],
-      criterios: d.criterios||DB.criterios,
-      historico: d.historico||DB.historico,
+      gestao,
+      colaboradores:   Array.isArray(d.colaboradores)   ? d.colaboradores   : DB.colaboradores,
+      inconformidades: Array.isArray(d.inconformidades)  ? d.inconformidades : DB.inconformidades,
+      destaques:       Array.isArray(d.destaques)        ? d.destaques       : DB.destaques,
+      criterios:       d.criterios  || DB.criterios,
+      historico:       d.historico  || DB.historico,
     };
   }catch(e){
-    console.warn("GAS load error:", e);
+    console.warn("loadFromGAS erro:", e.message);
     return null;
   }
 }
 
-// mantém compatibilidade
-async function loadFromSheet(id){ return loadFromGAS(); }
+// ── Salvar dados no Apps Script ───────────────────────────────────────────
+// Apps Script não suporta Content-Type application/json no doPost via fetch normal.
+// Solução: envia como form-urlencoded com o JSON dentro do campo "payload".
+function dbSave(){
+  // 1. Salva no localStorage imediatamente (nunca falha)
+  lsSave();
+  // 2. Envia ao GAS com debounce de 2s
+  clearTimeout(dbSave._t);
+  dbSave._t = setTimeout(()=>_pushToGAS(), 2000);
+}
+dbSave._t = null;
 
-// ── Salvar dados no Google Sheets via GAS Web App ──────────────────────────
-// Requer Apps Script publicado. Se não configurado, só salva localStorage.
-async function syncSheetIfConnected(){ dbSave(); } // alias
+async function _pushToGAS(){
+  try{
+    const payload = JSON.stringify({
+      action:          "save",
+      gestao:          DB.gestao,
+      colaboradores:   DB.colaboradores,
+      inconformidades: DB.inconformidades,
+      destaques:       DB.destaques,
+      criterios:       DB.criterios,
+      historico:       DB.historico,
+    });
 
-async function pushToSheet(){ dbSave(); } // delega para dbSave
+    // Envia como form para evitar problema de CORS/preflight no Apps Script
+    const form = new FormData();
+    form.append("payload", payload);
+
+    const res = await fetch(GAS_URL, { method:"POST", body: form });
+    const txt = await res.text();
+    let ok = false;
+    try{ ok = JSON.parse(txt)?.ok === true; }catch(e){}
+    if(ok) showSyncStatus("✓ Dados salvos na planilha", "ok");
+    else   showSyncStatus("⚠ Resposta inesperada do servidor", "wn");
+  }catch(e){
+    showSyncStatus("⚠ Sem conexão — dado salvo localmente", "wn");
+  }
+}
 
 function showSyncStatus(msg, type){
-  const el=document.getElementById("sync-status-bar");
+  const el = document.getElementById("sync-status-bar");
   if(!el) return;
-  el.textContent=msg;
-  el.className=`alrt alrt-${type}`;
-  el.style.display="block";
+  el.textContent = msg;
+  el.className   = `alrt alrt-${type}`;
+  el.style.display = "block";
   setTimeout(()=>{ if(el) el.style.display="none"; }, 4000);
 }
 
-// ── Salvar manualmente (botão na tela ADM) ────────────────────────────────
 async function syncManual(){
   showSyncStatus("⏳ Sincronizando...", "if");
-  dbSave();
+  await _pushToGAS();
 }
 
-// ── doLogin: carrega Sheet antes de autenticar ─────────────────────────────
+// aliases de compatibilidade
+function lsSaveSheet(){} function lsLoadSheet(){return "";}
+function syncSheetIfConnected(){ dbSave(); }
+async function pushToSheet(){ await _pushToGAS(); }
+
+// ── doLogin: tenta GAS → localStorage → dados padrão (nesta ordem) ────────
 function doLogin(){
   const email = document.getElementById("l-email").value.trim().toLowerCase();
   const senha = document.getElementById("l-senha").value;
   const err   = document.getElementById("login-err");
-  const info  = document.getElementById("login-sync-info");
   const btn   = document.getElementById("btn-entrar");
+  const info  = document.getElementById("login-sync-info");
 
-  err.style.display="none";
-  btn.textContent="Aguarde...";
-  btn.disabled=true;
+  err.style.display  = "none";
+  if(info) info.style.display = "none";
+  btn.textContent    = "Aguarde...";
+  btn.disabled       = true;
 
-  // Carrega dados do Apps Script silenciosamente
-  loadFromGAS().then(gasData=>{
+  // Tenta carregar dados atuais do GAS (para ter senhas mais recentes)
+  // Com timeout curto para não travar o login
+  const gasPromise = loadFromGAS();
+  const timer      = new Promise(resolve => setTimeout(()=>resolve(null), 8000));
+
+  Promise.race([gasPromise, timer]).then(gasData => {
     if(gasData && gasData.gestao && gasData.gestao.length > 0){
+      // Mescla: dados do GAS, mas preserva estrutura local se GAS veio incompleto
       DB = gasData;
       lsSave();
     } else {
-      // Fallback: localStorage
+      // Fallback 1: localStorage
       const local = lsLoad();
       if(local) DB = local;
+      // Fallback 2: dados padrão já estão em DB (declarados no início)
     }
-    _finalizarLogin(email, senha, err, btn);
-  }).catch(()=>{
-    const local = lsLoad();
-    if(local) DB = local;
-    _finalizarLogin(email, senha, err, btn);
+    _efetuarLogin(email, senha, err, btn);
   });
 }
 
-function _finalizarLogin(email, senha, err, btn){
-  btn.textContent="Entrar";
-  btn.disabled=false;
+function _efetuarLogin(email, senha, err, btn){
+  btn.textContent = "Entrar";
+  btn.disabled    = false;
   const u = findUser(email, senha);
   if(!u){
-    err.textContent="E-mail ou senha incorretos.";
-    err.style.display="block";
+    err.textContent    = "E-mail ou senha incorretos.";
+    err.style.display  = "block";
     return;
   }
-  SESSION={...u};
-  PAGE=PERFIS[u.perfil].pages[0];
-  document.getElementById("login-screen").style.display="none";
+  err.style.display = "none";
+  SESSION = {...u};
+  PAGE    = PERFIS[u.perfil].pages[0];
+  document.getElementById("login-screen").style.display = "none";
   document.getElementById("main-layout").classList.add("visible");
-  buildLayout();renderPage();
+  buildLayout();
+  renderPage();
 }
 
-// Configuração de GAS gerenciada internamente
-
-}
-
-// ── Interceptar mudanças no DB para auto-salvar ───────────────────────────
-// Sobrescreve funções que alteram DB para chamar lsSave() após
-// ── dbSave — salva localStorage + envia ao GAS em background ──────────────
-function dbSave(){
-  // 1. Salva imediatamente no localStorage (não falha)
-  try{ localStorage.setItem("pe_db_v1", JSON.stringify(DB)); }catch(e){}
-  // 2. Envia ao Apps Script com debounce de 1.5s para não sobrecarregar
-  clearTimeout(dbSave._t);
-  dbSave._t = setTimeout(async ()=>{
-    try{
-      const res = await fetch(GAS_URL, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          action:"save",
-          gestao: DB.gestao,
-          colaboradores: DB.colaboradores,
-          inconformidades: DB.inconformidades,
-          destaques: DB.destaques,
-          criterios: DB.criterios,
-          historico: DB.historico,
-        }),
-      });
-      if(res.ok) showSyncStatus("✓ Dados salvos", "ok");
-      else       showSyncStatus("⚠ Falha ao salvar remotamente", "wn");
-    }catch(e){
-      showSyncStatus("⚠ Sem conexão — salvo localmente", "wn");
-    }
-  }, 1500);
-}
-dbSave._t = null;
+// alias para compatibilidade com chamadas antigas
+function _finalizarLogin(e,s,err,btn){ _efetuarLogin(e,s,err,btn); }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 // URL do Apps Script e Sheet ID fixos — transparente para o usuário
