@@ -200,7 +200,7 @@ header{height:var(--header);background:var(--card);border-bottom:1px solid var(-
 
 <!-- ══════════════════ LOGIN ══════════════════ -->
 <div id="login-screen">
-  <div style="width:380px;background:#fff;border:1px solid #E2E0DA;border-radius:16px;padding:2rem">
+  <div style="width:360px;background:#fff;border:1px solid #E2E0DA;border-radius:16px;padding:2rem">
     <div style="text-align:center;margin-bottom:1.75rem">
       <div class="logo" style="width:52px;height:52px;border-radius:12px;margin:0 auto 1rem">
         <svg width="28" height="28" viewBox="0 0 16 16" fill="white"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>
@@ -209,10 +209,10 @@ header{height:var(--header);background:var(--card);border-bottom:1px solid var(-
       <div style="font-size:13px;color:#6B6963;margin-top:4px">Performance Management System</div>
     </div>
     <div id="login-err" class="alrt alrt-dn" style="display:none"></div>
+    <div id="login-sync-info" class="alrt alrt-if" style="display:none;font-size:12px"></div>
     <div class="fg"><label>E-mail</label><input type="email" id="l-email" placeholder="seu@email.com"/></div>
     <div class="fg"><label>Senha</label><input type="password" id="l-senha" placeholder="••••••••"/></div>
-    <button class="btn btn-pr btn-lg btn-full" onclick="doLogin()" style="margin-top:.5rem">Entrar</button>
-
+    <button class="btn btn-pr btn-lg btn-full" id="btn-entrar" onclick="doLogin()" style="margin-top:.5rem">Entrar</button>
   </div>
 </div>
 
@@ -226,6 +226,7 @@ header{height:var(--header);background:var(--card);border-bottom:1px solid var(-
     <span id="hd-user" style="font-size:13px;color:#6B6963"></span>
     <button class="btn btn-gh btn-sm" onclick="doLogout()">Sair</button>
   </header>
+  <div id="sync-status-bar" class="alrt" style="display:none;margin:0;border-radius:0;border-left:none;border-right:none;font-size:12px;text-align:center;padding:6px 1rem"></div>
   <div class="body-wrap">
     <div id="sidebar">
       <div class="nav-section">Navegação</div>
@@ -1478,6 +1479,16 @@ function pageADMExportar(){
   return `<div class="ph"><div class="ph-title">Exportar / Imprimir</div>
     <div class="ph-sub">Todos os documentos disponíveis para impressão diretamente pelo navegador</div></div>
   <div class="alrt alrt-if">ℹ️ Use o botão de impressão do navegador (Ctrl+P / Cmd+P) após clicar em "Imprimir". Escolha "Salvar como PDF" para gerar o arquivo.</div>
+  <div class="card" style="border:1px solid #5DCAA5;background:#F0FBF7">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <div style="font-weight:600;font-size:14px;color:#0F6E56">☁️ Sincronização com Google Sheets</div>
+      <button class="btn btn-pr btn-sm" onclick="syncManual()">🔄 Sincronizar Agora</button>
+    </div>
+    <div style="font-size:12px;color:#6B6963;line-height:1.8">
+      Todos os dados são salvos automaticamente a cada alteração.<br/>
+      <strong>Sincronização automática:</strong> ativa — gestores, colaboradores, inconformidades e destaques.
+    </div>
+  </div>
   <div class="grid2">
     <div class="card"><div class="card-title">📄 Avaliações Individuais</div>
       ${DB.colaboradores.filter(c=>c.status==="Ativo").map(c=>`
@@ -2016,8 +2027,208 @@ function pageADMDestaque(){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// INIT
+// PERSISTÊNCIA — Google Sheets via Apps Script (Web App) + localStorage fallback
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// COMO FUNCIONA:
+//  1. Usuário informa o ID da planilha na tela de login
+//  2. O sistema chama um Apps Script publicado como Web App
+//  3. O Apps Script lê/escreve abas na planilha usando JSON
+//  4. localStorage salva o Sheet ID e os dados localmente como cache
+//
+// ABAS DA PLANILHA:
+//   gestao | colaboradores | inconformidades | destaques | criterios_json
+//
+// O Apps Script precisa ser publicado como Web App com acesso "Qualquer pessoa"
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LS_KEY = "pe_db_v1";
+const LS_SHEET = "pe_sheet_id";
+let GAS_URL = ""; // URL do Web App do Apps Script (preenchido via sheet ID)
+
+// ── localStorage helpers ──────────────────────────────────────────────────
+function lsSave(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch(e){}
+}
+function lsLoad(){
+  try{
+    const raw=localStorage.getItem(LS_KEY);
+    if(raw){ const d=JSON.parse(raw); if(d && d.gestao && d.colaboradores) return d; }
+  }catch(e){}
+  return null;
+}
+function lsSaveSheet(id){ try{ localStorage.setItem(LS_SHEET, id); }catch(e){} }
+function lsLoadSheet(){ try{ return localStorage.getItem(LS_SHEET)||""; }catch(e){ return ""; } }
+
+// ── Auto-save: salva no localStorage sempre que DB muda ───────────────────
+const _dbProxy = new Proxy({save:lsSave},{});
+function dbChanged(){ lsSave(); syncSheetIfConnected(); }
+
+// Sheet ID não exposto ao usuário — gerenciado internamente pelo Apps Script
+let SHEET_ID = "";
+
+// ── Carregar dados do Apps Script ────────────────────────────────────────
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec";
+
+async function loadFromGAS(){
+  try{
+    const res = await fetch(GAS_ENDPOINT+"?action=load", {
+      signal: AbortSignal.timeout(10000)
+    });
+    if(!res.ok) return null;
+    const d = await res.json();
+    if(!d || !d.gestao || d.gestao.length===0) return null;
+    return {
+      gestao: d.gestao.map(g=>{
+        const o={...g};
+        o.email=(o.email||"").toLowerCase();
+        return o;
+      }),
+      colaboradores: d.colaboradores||[],
+      inconformidades: d.inconformidades||[],
+      destaques: d.destaques||[],
+      criterios: d.criterios||DB.criterios,
+      historico: d.historico||DB.historico,
+    };
+  }catch(e){
+    console.warn("GAS load error:", e);
+    return null;
+  }
+}
+
+// mantém compatibilidade
+async function loadFromSheet(id){ return loadFromGAS(); }
+
+// ── Salvar dados no Google Sheets via GAS Web App ──────────────────────────
+// Requer Apps Script publicado. Se não configurado, só salva localStorage.
+let _syncTimer = null;
+async function syncSheetIfConnected(){
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(()=>pushToSheet(), 2000); // debounce 2s — sempre ativo
+}
+
+async function pushToSheet(){
+  try{
+    const payload = {
+      action: "save",
+      gestao: DB.gestao,
+      colaboradores: DB.colaboradores,
+      inconformidades: DB.inconformidades,
+      destaques: DB.destaques,
+      criterios: DB.criterios,
+      historico: DB.historico,
+    };
+    const res = await fetch("https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(payload),
+    });
+    if(res.ok) showSyncStatus("✓ Dados salvos", "ok");
+    else showSyncStatus("⚠ Falha ao salvar", "wn");
+  }catch(e){
+    showSyncStatus("⚠ Sem conexão — salvo localmente", "wn");
+  }
+}
+
+function showSyncStatus(msg, type){
+  const el=document.getElementById("sync-status-bar");
+  if(!el) return;
+  el.textContent=msg;
+  el.className=`alrt alrt-${type}`;
+  el.style.display="block";
+  setTimeout(()=>{ if(el) el.style.display="none"; }, 4000);
+}
+
+// ── Salvar manualmente (botão na tela ADM) ────────────────────────────────
+async function syncManual(){
+  lsSave();
+  showSyncStatus("⏳ Sincronizando...", "if");
+  await pushToSheet();
+}
+
+// ── doLogin: carrega Sheet antes de autenticar ─────────────────────────────
+function doLogin(){
+  const email = document.getElementById("l-email").value.trim().toLowerCase();
+  const senha = document.getElementById("l-senha").value;
+  const err   = document.getElementById("login-err");
+  const info  = document.getElementById("login-sync-info");
+  const btn   = document.getElementById("btn-entrar");
+
+  err.style.display="none";
+  btn.textContent="Aguarde...";
+  btn.disabled=true;
+
+  // Carrega dados do Apps Script silenciosamente
+  loadFromGAS().then(gasData=>{
+    if(gasData && gasData.gestao && gasData.gestao.length > 0){
+      DB = gasData;
+      lsSave();
+    } else {
+      // Fallback: localStorage
+      const local = lsLoad();
+      if(local) DB = local;
+    }
+    _finalizarLogin(email, senha, err, btn);
+  }).catch(()=>{
+    const local = lsLoad();
+    if(local) DB = local;
+    _finalizarLogin(email, senha, err, btn);
+  });
+}
+
+function _finalizarLogin(email, senha, err, btn){
+  btn.textContent="Entrar";
+  btn.disabled=false;
+  const u = findUser(email, senha);
+  if(!u){
+    err.textContent="E-mail ou senha incorretos.";
+    err.style.display="block";
+    return;
+  }
+  SESSION={...u};
+  PAGE=PERFIS[u.perfil].pages[0];
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("main-layout").classList.add("visible");
+  buildLayout();renderPage();
+}
+
+// Configuração de GAS gerenciada internamente
+
+}
+
+// ── Interceptar mudanças no DB para auto-salvar ───────────────────────────
+// Sobrescreve funções que alteram DB para chamar lsSave() após
+const _origSalvarInc    = salvarInc;
+const _origConfValid    = confirmarValidacao;
+const _origConfDest     = confirmarValidacaoDestaque;
+const _origSalvDest     = salvarDestaque;
+const _origAdmAdd       = admAddColab;
+const _origAdmExcluir   = admExcluirColab;
+const _origAdmSalvGest  = admSalvarGestao;
+const _origAdmConfEdit  = admConfirmarEdicao;
+const _origAdmRemGest   = admRemoverGestao;
+const _origAdmAddCrit   = admAddCrit;
+const _origAdmRemCrit   = admRemCrit;
+const _origConfirmarTurno = confirmarTurno;
+
+function salvarInc(){ _origSalvarInc(); lsSave(); syncSheetIfConnected(); }
+function confirmarValidacao(id){ _origConfValid(id); lsSave(); syncSheetIfConnected(); }
+function confirmarValidacaoDestaque(id){ _origConfDest(id); lsSave(); syncSheetIfConnected(); }
+function salvarDestaque(){ _origSalvDest(); lsSave(); syncSheetIfConnected(); }
+function admAddColab(){ _origAdmAdd(); lsSave(); syncSheetIfConnected(); }
+function admExcluirColab(id){ _origAdmExcluir(id); lsSave(); syncSheetIfConnected(); }
+function admSalvarGestao(){ _origAdmSalvGest(); lsSave(); syncSheetIfConnected(); }
+function admConfirmarEdicao(id){ _origAdmConfEdit(id); lsSave(); syncSheetIfConnected(); }
+function admRemoverGestao(id){ _origAdmRemGest(id); lsSave(); syncSheetIfConnected(); }
+function admAddCrit(){ _origAdmAddCrit(); lsSave(); syncSheetIfConnected(); }
+function admRemCrit(n,i){ _origAdmRemCrit(n,i); lsSave(); syncSheetIfConnected(); }
+function confirmarTurno(t,id){ _origConfirmarTurno(t,id); lsSave(); syncSheetIfConnected(); }
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+// URL do Apps Script e Sheet ID fixos — transparente para o usuário
+GAS_URL  = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec";
+SHEET_ID = "";  // será preenchido pelo Apps Script na primeira chamada
+
 document.getElementById("l-email").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
 document.getElementById("l-senha").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
 </script>
