@@ -439,19 +439,7 @@ function closeModal(){document.getElementById("modal-bg").classList.remove("open
 // AUTH
 // ═══════════════════════════════════════════════════════════════════════════
 function buildDemoList(){} // login real — sem acesso demo
-function doLogin(){
-  const e=document.getElementById("l-email").value.trim().toLowerCase();
-  const s=document.getElementById("l-senha").value;
-  const err=document.getElementById("login-err");
-  const u=findUser(e,s);
-  if(!u){err.textContent="E-mail ou senha incorretos.";err.style.display="block";return}
-  err.style.display="none";
-  SESSION={...u};
-  PAGE=PERFIS[u.perfil].pages[0];
-  document.getElementById("login-screen").style.display="none";
-  document.getElementById("main-layout").classList.add("visible");
-  buildLayout();renderPage();
-}
+// doLogin gerenciado pelo bloco de persistência abaixo
 function doLogout(){
   SESSION=null;PAGE=null;
   document.getElementById("main-layout").classList.remove("visible");
@@ -635,7 +623,7 @@ function salvarInc(){
   if(!cid||!desc){alert("Preencha colaborador e descrição.");return}
   DB.inconformidades.push({id:uid(),colaboradorId:cid,mes:MES,data:now(),
     descricao:desc,gravidade:grav,lidId:SESSION.gid,status:"Pendente",supId:"",obsL:obs,obsS:""});
-  closeModal();renderPage();buildLayout();
+  dbSave();closeModal();renderPage();buildLayout();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -782,7 +770,7 @@ function confirmarValidacao(incId){
     if(dec==="alterar"&&ng)inc.gravidade=ng;
     inc.supId=SESSION.gid;inc.obsS=obs;
   }
-  closeModal();renderPage();buildLayout();
+  dbSave();closeModal();renderPage();buildLayout();
 }
 
 function pageSupFechar(){
@@ -1002,7 +990,7 @@ function confirmarTurno(tipo,id){
   const nt=document.getElementById("nt").value;
   if(tipo==="colab"){const c=DB.colaboradores.find(x=>x.id===id);c.turno=nt;}
   else{const g=DB.gestao.find(x=>x.id===id);g.turno=nt;}
-  closeModal();renderPage();
+  dbSave();closeModal();renderPage();
 }
 
 function pageCoordProm(){
@@ -1239,7 +1227,7 @@ function admAddColab(){
     status:document.getElementById("ac-status").value,
     supId:"",lidId:"",
   });
-  window._admColTab="lista";renderPage();
+  dbSave();window._admColTab="lista";renderPage();
 }
 
 function admExcluirColab(id){
@@ -1249,7 +1237,7 @@ function admExcluirColab(id){
   // Remove colaborador e suas inconformidades associadas
   DB.colaboradores=DB.colaboradores.filter(x=>x.id!==id);
   DB.inconformidades=DB.inconformidades.filter(x=>x.colaboradorId!==id);
-  renderPage();
+  dbSave();renderPage();
 }
 
 function pageADMCriterios(){
@@ -1281,9 +1269,9 @@ function admAddCrit(){
   const niv=document.getElementById("nc-niv").value;
   if(!txt)return;
   DB.criterios[niv]=[...(DB.criterios[niv]||[]),txt];
-  renderPage();
+  dbSave();renderPage();
 }
-function admRemCrit(niv,idx){DB.criterios[niv].splice(idx,1);renderPage();}
+function admRemCrit(niv,idx){DB.criterios[niv].splice(idx,1);dbSave();renderPage();}
 
 function pageADMGestao(){
   const tab=window._admGestTab||"lista";
@@ -1404,7 +1392,7 @@ function admSalvarGestao(){
   }
   const novoId="G"+String(Date.now()).slice(-6);
   DB.gestao.push({id:novoId,nome,cargo,turno,email,senha});
-  window._admGestTab="lista";
+  dbSave();window._admGestTab="lista";
   renderPage();
 }
 
@@ -1412,7 +1400,7 @@ function admRemoverGestao(gid){
   if(!confirm("Remover este usuário? Esta ação não pode ser desfeita."))return;
   const idx=DB.gestao.findIndex(g=>g.id===gid);
   if(idx>=0)DB.gestao.splice(idx,1);
-  renderPage();
+  dbSave();renderPage();
 }
 
 function modalEditarGestao(gid){
@@ -1472,7 +1460,7 @@ function admConfirmarEdicao(gid){
     g.senha=senha;
   }
   g.nome=nome;g.email=email;g.cargo=cargo;g.turno=turno;
-  closeModal();renderPage();
+  dbSave();closeModal();renderPage();
 }
 
 function pageADMExportar(){
@@ -1839,7 +1827,7 @@ function salvarDestaque(){
     data:now(),descricao:desc,nivel,
     lidId:SESSION.gid,status:"Pendente",supId:"",obsL:obs,obsS:"",
   });
-  closeModal();renderPage();buildLayout();
+  dbSave();closeModal();renderPage();buildLayout();
 }
 
 // ── SUPERVISOR: Validar Destaques ─────────────────────────────────────────
@@ -1936,7 +1924,7 @@ function confirmarValidacaoDestaque(destId){
   if(!d)return;
   d.status=dec==="validar"?"Validado":"Recusado";
   d.supId=SESSION.gid;d.obsS=obs;
-  closeModal();renderPage();buildLayout();
+  dbSave();closeModal();renderPage();buildLayout();
 }
 
 // ── COORDENADOR: Ver todos os destaques ──────────────────────────────────
@@ -2044,15 +2032,13 @@ function pageADMDestaque(){
 
 const LS_KEY = "pe_db_v1";
 const LS_SHEET = "pe_sheet_id";
-let GAS_URL = ""; // URL do Web App do Apps Script (preenchido via sheet ID)
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec"; // URL do Apps Script — fixo
 
 // ── localStorage helpers ──────────────────────────────────────────────────
-function lsSave(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch(e){}
-}
+function lsSave(){ try{ localStorage.setItem("pe_db_v1",JSON.stringify(DB)); }catch(e){} }
 function lsLoad(){
   try{
-    const raw=localStorage.getItem(LS_KEY);
+    const raw=localStorage.getItem("pe_db_v1");
     if(raw){ const d=JSON.parse(raw); if(d && d.gestao && d.colaboradores) return d; }
   }catch(e){}
   return null;
@@ -2068,11 +2054,9 @@ function dbChanged(){ lsSave(); syncSheetIfConnected(); }
 let SHEET_ID = "";
 
 // ── Carregar dados do Apps Script ────────────────────────────────────────
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec";
-
 async function loadFromGAS(){
   try{
-    const res = await fetch(GAS_ENDPOINT+"?action=load", {
+    const res = await fetch(GAS_URL+"?action=load", {
       signal: AbortSignal.timeout(10000)
     });
     if(!res.ok) return null;
@@ -2101,34 +2085,9 @@ async function loadFromSheet(id){ return loadFromGAS(); }
 
 // ── Salvar dados no Google Sheets via GAS Web App ──────────────────────────
 // Requer Apps Script publicado. Se não configurado, só salva localStorage.
-let _syncTimer = null;
-async function syncSheetIfConnected(){
-  clearTimeout(_syncTimer);
-  _syncTimer = setTimeout(()=>pushToSheet(), 2000); // debounce 2s — sempre ativo
-}
+async function syncSheetIfConnected(){ dbSave(); } // alias
 
-async function pushToSheet(){
-  try{
-    const payload = {
-      action: "save",
-      gestao: DB.gestao,
-      colaboradores: DB.colaboradores,
-      inconformidades: DB.inconformidades,
-      destaques: DB.destaques,
-      criterios: DB.criterios,
-      historico: DB.historico,
-    };
-    const res = await fetch("https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(payload),
-    });
-    if(res.ok) showSyncStatus("✓ Dados salvos", "ok");
-    else showSyncStatus("⚠ Falha ao salvar", "wn");
-  }catch(e){
-    showSyncStatus("⚠ Sem conexão — salvo localmente", "wn");
-  }
-}
+async function pushToSheet(){ dbSave(); } // delega para dbSave
 
 function showSyncStatus(msg, type){
   const el=document.getElementById("sync-status-bar");
@@ -2141,9 +2100,8 @@ function showSyncStatus(msg, type){
 
 // ── Salvar manualmente (botão na tela ADM) ────────────────────────────────
 async function syncManual(){
-  lsSave();
   showSyncStatus("⏳ Sincronizando...", "if");
-  await pushToSheet();
+  dbSave();
 }
 
 // ── doLogin: carrega Sheet antes de autenticar ─────────────────────────────
@@ -2198,36 +2156,39 @@ function _finalizarLogin(email, senha, err, btn){
 
 // ── Interceptar mudanças no DB para auto-salvar ───────────────────────────
 // Sobrescreve funções que alteram DB para chamar lsSave() após
-const _origSalvarInc    = salvarInc;
-const _origConfValid    = confirmarValidacao;
-const _origConfDest     = confirmarValidacaoDestaque;
-const _origSalvDest     = salvarDestaque;
-const _origAdmAdd       = admAddColab;
-const _origAdmExcluir   = admExcluirColab;
-const _origAdmSalvGest  = admSalvarGestao;
-const _origAdmConfEdit  = admConfirmarEdicao;
-const _origAdmRemGest   = admRemoverGestao;
-const _origAdmAddCrit   = admAddCrit;
-const _origAdmRemCrit   = admRemCrit;
-const _origConfirmarTurno = confirmarTurno;
-
-function salvarInc(){ _origSalvarInc(); lsSave(); syncSheetIfConnected(); }
-function confirmarValidacao(id){ _origConfValid(id); lsSave(); syncSheetIfConnected(); }
-function confirmarValidacaoDestaque(id){ _origConfDest(id); lsSave(); syncSheetIfConnected(); }
-function salvarDestaque(){ _origSalvDest(); lsSave(); syncSheetIfConnected(); }
-function admAddColab(){ _origAdmAdd(); lsSave(); syncSheetIfConnected(); }
-function admExcluirColab(id){ _origAdmExcluir(id); lsSave(); syncSheetIfConnected(); }
-function admSalvarGestao(){ _origAdmSalvGest(); lsSave(); syncSheetIfConnected(); }
-function admConfirmarEdicao(id){ _origAdmConfEdit(id); lsSave(); syncSheetIfConnected(); }
-function admRemoverGestao(id){ _origAdmRemGest(id); lsSave(); syncSheetIfConnected(); }
-function admAddCrit(){ _origAdmAddCrit(); lsSave(); syncSheetIfConnected(); }
-function admRemCrit(n,i){ _origAdmRemCrit(n,i); lsSave(); syncSheetIfConnected(); }
-function confirmarTurno(t,id){ _origConfirmarTurno(t,id); lsSave(); syncSheetIfConnected(); }
+// ── dbSave — salva localStorage + envia ao GAS em background ──────────────
+function dbSave(){
+  // 1. Salva imediatamente no localStorage (não falha)
+  try{ localStorage.setItem("pe_db_v1", JSON.stringify(DB)); }catch(e){}
+  // 2. Envia ao Apps Script com debounce de 1.5s para não sobrecarregar
+  clearTimeout(dbSave._t);
+  dbSave._t = setTimeout(async ()=>{
+    try{
+      const res = await fetch(GAS_URL, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          action:"save",
+          gestao: DB.gestao,
+          colaboradores: DB.colaboradores,
+          inconformidades: DB.inconformidades,
+          destaques: DB.destaques,
+          criterios: DB.criterios,
+          historico: DB.historico,
+        }),
+      });
+      if(res.ok) showSyncStatus("✓ Dados salvos", "ok");
+      else       showSyncStatus("⚠ Falha ao salvar remotamente", "wn");
+    }catch(e){
+      showSyncStatus("⚠ Sem conexão — salvo localmente", "wn");
+    }
+  }, 1500);
+}
+dbSave._t = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 // URL do Apps Script e Sheet ID fixos — transparente para o usuário
-GAS_URL  = "https://script.google.com/macros/s/AKfycbyHW4_a0unZ5NBgecUlfQiO6T2aM1Yj8tYK3X6zMWNMC13qUtiGdIhXlhxFSSL6nkzgcQ/exec";
-SHEET_ID = "";  // será preenchido pelo Apps Script na primeira chamada
+// GAS_URL já configurado acima como constante
 
 document.getElementById("l-email").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
 document.getElementById("l-senha").addEventListener("keydown",e=>e.key==="Enter"&&doLogin());
