@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Perform Avaliation</title>
+<title>Performance Evaluation</title>
 <style>
 /* ── Reset & Base ─────────────────────────────────────────────────────────── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -205,8 +205,8 @@ header{height:var(--header);background:var(--card);border-bottom:1px solid var(-
       <div class="logo" style="width:52px;height:52px;border-radius:12px;margin:0 auto 1rem">
         <svg width="28" height="28" viewBox="0 0 16 16" fill="white"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg>
       </div>
-      <div style="font-size:20px;font-weight:600;letter-spacing:-.5px">Perform Avaliation</div>
-      <div style="font-size:13px;color:#6B6963;margin-top:4px">Sistema de Avaliação de Performance</div>
+      <div style="font-size:20px;font-weight:600;letter-spacing:-.5px">Performance Evaluation</div>
+      <div style="font-size:13px;color:#6B6963;margin-top:4px">Performance Management System</div>
     </div>
     <div id="login-err" class="alrt alrt-dn" style="display:none"></div>
     <div class="fg"><label>E-mail</label><input type="email" id="l-email" placeholder="seu@email.com"/></div>
@@ -220,7 +220,7 @@ header{height:var(--header);background:var(--card);border-bottom:1px solid var(-
 <div id="main-layout">
   <header>
     <div class="logo"><svg width="16" height="16" viewBox="0 0 16 16" fill="white"><rect x="2" y="8" width="3" height="6" rx="1"/><rect x="6.5" y="5" width="3" height="9" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg></div>
-    <span style="font-weight:600;font-size:15px;letter-spacing:-.3px">Perform Avaliation</span>
+    <span style="font-weight:600;font-size:15px;letter-spacing:-.3px">Performance Evaluation</span>
     <div id="hd-badge" style="display:flex;align-items:center;gap:6px;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:500"></div>
     <div style="flex:1"></div>
     <span id="hd-user" style="font-size:13px;color:#6B6963"></span>
@@ -373,8 +373,8 @@ const pendentes=()=>DB.inconformidades.filter(i=>i.status==="Pendente");
 const fmtScore=s=>s.toFixed(1);
 const gravChip=g=>`<span class="chip" style="color:${GC[g]};background:${GB[g]};border-color:${GC[g]}">${g}</span>`;
 const statusChip=s=>{
-  const m={Validada:"#1D9E75",Pendente:"#854F0B",Cancelada:"#888"};
-  return `<span style="font-size:12px;color:${m[s]||"#888"}">${s}</span>`;
+  const m={Validada:"#1D9E75",Pendente:"#854F0B",Recusada:"#A32D2D",Cancelada:"#888"};
+  return `<span style="font-size:12px;color:${m[s]||"#888"};font-weight:${s==="Recusada"?"600":"400"}">${s}</span>`;
 };
 const faixaChip=s=>{const f=faixa(s);return `<span class="chip ${f.cls}">${f.l}</span>`};
 const barHtml=(s,w="100%")=>{
@@ -704,13 +704,15 @@ function modalValidar(incId,isCoord=false){
       <div style="color:#A09D97;margin-top:4px">${inc.data} — ${col?.nome||""}</div>
     </div>
     <div class="fg"><label>Decisão</label><select id="val-dec" onchange="toggleGravAlt()">
-      <option value="confirmar">Confirmar — aplicar desconto de -${DESCONTO[inc.gravidade].toFixed(1)} pts</option>
-      <option value="alterar">Confirmar com gravidade diferente</option>
-      <option value="cancelar">Cancelar — sem procedência (não desconta)</option>
+      <option value="confirmar">✅ Validar — aplicar desconto de -${DESCONTO[inc.gravidade].toFixed(1)} pts</option>
+      <option value="alterar">✅ Validar com gravidade diferente</option>
+      <option value="recusar">❌ Recusar — inconformidade não procede (não desconta)</option>
+      <option value="cancelar">🚫 Cancelar — erro de registro (remove o registro)</option>
     </select></div>
     <div id="grav-alt" style="display:none" class="fg"><label>Nova Gravidade</label><select id="val-grav">
       <option>Crítica</option><option>Grave</option><option>Média</option><option>Leve</option>
     </select></div>
+    <div id="dec-info" class="alrt" style="display:none;margin-top:0"></div>
     <div class="fg"><label>Observação</label><textarea id="val-obs" placeholder="Justificativa..."></textarea></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
       <button class="btn" onclick="closeModal()">Cancelar</button>
@@ -721,7 +723,20 @@ function modalValidar(incId,isCoord=false){
 
 function toggleGravAlt(){
   const d=document.getElementById("val-dec").value;
-  document.getElementById("grav-alt").style.display=d==="alterar"?"block":"none";
+  const alt=document.getElementById("grav-alt");
+  const info=document.getElementById("dec-info");
+  if(alt)alt.style.display=d==="alterar"?"block":"none";
+  if(info){
+    const msgs={
+      confirmar:{cls:"alrt-ok",txt:"✅ A inconformidade será validada e o desconto aplicado na pontuação."},
+      alterar:{cls:"alrt-ok",txt:"✅ A inconformidade será validada com a nova gravidade selecionada e o desconto aplicado."},
+      recusar:{cls:"alrt-wn",txt:"❌ A inconformidade será recusada. Nenhum desconto será aplicado na pontuação."},
+      cancelar:{cls:"alrt-dn",txt:"🚫 O registro será cancelado e removido do histórico do colaborador."},
+    };
+    const m=msgs[d];
+    if(m){info.className=`alrt ${m.cls}`;info.textContent=m.txt;info.style.display="block";}
+    else{info.style.display="none";}
+  }
 }
 
 function confirmarValidacao(incId){
@@ -729,9 +744,15 @@ function confirmarValidacao(incId){
   const obs=document.getElementById("val-obs").value;
   const ng=document.getElementById("val-grav")?.value;
   const inc=DB.inconformidades.find(i=>i.id===incId);
-  inc.status=dec==="cancelar"?"Cancelada":"Validada";
-  if(dec==="alterar"&&ng)inc.gravidade=ng;
-  inc.supId=SESSION.gid;inc.obsS=obs;
+  if(!inc)return;
+  if(dec==="cancelar"){
+    // Remove o registro completamente
+    DB.inconformidades=DB.inconformidades.filter(i=>i.id!==incId);
+  } else {
+    inc.status=dec==="recusar"?"Recusada":"Validada";
+    if(dec==="alterar"&&ng)inc.gravidade=ng;
+    inc.supId=SESSION.gid;inc.obsS=obs;
+  }
   closeModal();renderPage();buildLayout();
 }
 
@@ -1161,9 +1182,8 @@ function pageADMColabs(){
     <td>${c.id}</td><td>${c.nome}</td>
     <td><span class="chip chip-gray">${c.nivel}</span></td>
     <td>${c.turno}</td><td>${c.cargo}</td>
-    <td><span class="chip ${c.status==="Ativo"?"chip-bom":"chip-gray"}">${c.status}</span></td>
     <td><strong style="color:${faixa(score(c.id)).c}">${fmtScore(score(c.id))}</strong></td>
-    <td><button class="btn btn-sm ${c.status==="Ativo"?"btn-dn":""}" onclick="admToggleStatus('${c.id}')">${c.status==="Ativo"?"Inativar":"Reativar"}</button></td>
+    <td><button class="btn btn-sm btn-dn" onclick="admExcluirColab('${c.id}')">Excluir</button></td>
   </tr>`).join("");
   return `<div class="ph"><div class="ph-title">Colaboradores</div><div class="ph-sub">Cadastro e gestão</div></div>
   <div class="tabs">${tabBtns}</div>
@@ -1172,7 +1192,7 @@ function pageADMColabs(){
       <div class="card-title" style="margin:0">${DB.colaboradores.length} colaboradores cadastrados</div>
     </div>
     <div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th>Matrícula</th><th>Nome</th><th>Nível</th><th>Turno</th><th>Cargo</th><th>Status</th><th>Pontuação</th><th></th></tr></thead>
+      <thead><tr><th>Matrícula</th><th>Nome</th><th>Nível</th><th>Turno</th><th>Cargo</th><th>Pontuação</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -1193,9 +1213,14 @@ function admAddColab(){
   window._admColTab="lista";renderPage();
 }
 
-function admToggleStatus(id){
+function admExcluirColab(id){
   const c=DB.colaboradores.find(x=>x.id===id);
-  c.status=c.status==="Ativo"?"Inativo":"Ativo";renderPage();
+  if(!c)return;
+  if(!confirm(`Excluir permanentemente "${c.nome}"?\nEsta ação não pode ser desfeita.`))return;
+  // Remove colaborador e suas inconformidades associadas
+  DB.colaboradores=DB.colaboradores.filter(x=>x.id!==id);
+  DB.inconformidades=DB.inconformidades.filter(x=>x.colaboradorId!==id);
+  renderPage();
 }
 
 function pageADMCriterios(){
@@ -1466,7 +1491,7 @@ function doImprimir(html){
 function printHeader(nome,nivel,turno,mes,matricula){
   return `<div class="print-header">
     <div>
-      <div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+      <div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORMANCE EVALUATION</div>
       <h1>${nome}</h1>
     </div>
     <div class="meta">
@@ -1476,7 +1501,7 @@ function printHeader(nome,nivel,turno,mes,matricula){
 }
 
 function printFooter(){
-  return `<div class="print-footer">Perform Avaliation · Gerado em ${now()} · Documento Confidencial</div>`;
+  return `<div class="print-footer">Performance Evaluation · Gerado em ${now()} · Documento Confidencial</div>`;
 }
 
 function printSigs(a,b,c){
@@ -1576,7 +1601,7 @@ function imprimirRelatorioTurno(turno){
   const bom=scores.filter(x=>x.s>=8).length,medQ=scores.filter(x=>x.s>=5&&x.s<8).length,ruim=scores.filter(x=>x.s<5).length;
   doImprimir(`
     <div class="print-header">
-      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORMANCE EVALUATION</div>
         <h1>Relatório — Turno ${turno}</h1></div>
       <div class="meta">${MES}<br/>Supervisor: ${sup?.nome||"—"}<br/>Data: ${now()}</div>
     </div>
@@ -1620,7 +1645,7 @@ function imprimirLista(faixaTipo,turno){
   }).join("");
   doImprimir(`
     <div class="print-header">
-      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORMANCE EVALUATION</div>
         <h1>Lista para Gestor — ${titulo}</h1></div>
       <div class="meta">Turno: ${turno}<br/>Período: ${MES}<br/>Total: ${scores.length}</div>
     </div>
@@ -1651,7 +1676,7 @@ function imprimirRanking(){
   }).join("");
   doImprimir(`
     <div class="print-header">
-      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORM AVALIATION</div>
+      <div><div style="font-size:11px;opacity:.8;margin-bottom:4px">PERFORMANCE EVALUATION</div>
         <h1>Ranking Geral de Performance</h1></div>
       <div class="meta">${MES}<br/>Data: ${now()}<br/>Total: ${scores.length} colaboradores</div>
     </div>
